@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mockup Interactivo NIIF 18</title>
+    <!-- [¤doctrina_ccsd_prompting] -->
+    <style>
+        :root {
+            --primary: #2b6cb0; --secondary: #2d3748; --accent: #3182ce;
+            --bg-body: #edf2f7; --bg-surface: #ffffff;
+            --border: #e2e8f0; --text-main: #1a202c; --text-muted: #718096;
+            --success: #38a169; --danger: #e53e3e; --warning: #d69e2e;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-body); color: var(--text-main); line-height: 1.5; }
+        
+        /* Header */
+        header { 
+            background-color: var(--bg-surface); 
+            padding: 0.85rem 1.5rem; 
+            border-bottom: 1px solid var(--border); 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04); 
+        }
+        .logo { font-size: 1.25rem; font-weight: bold; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        .user-badge { background: var(--bg-body); padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.85rem; font-weight: 500; }
+        
+        /* Layout Desktop: Barra superior horizontal + Contenido abajo */
+        .container { 
+            max-width: 1200px; 
+            margin: 1.5rem auto; 
+            padding: 0 1rem; 
+        }
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+        
+        /* Tabs Desktop (Horizontal) */
+        .tabs-nav { 
+            display: flex; 
+            overflow-x: auto; 
+            border-bottom: 2px solid var(--border); 
+            scrollbar-width: none;
+            gap: 0.25rem;
+            background: var(--bg-surface);
+            padding: 0.25rem 0.5rem 0 0.5rem;
+            border-radius: 8px 8px 0 0;
+            border: 1px solid var(--border);
+            border-bottom: 2px solid var(--border);
+        }
+        .tabs-nav::-webkit-scrollbar { display: none; }
+        .tab-btn { 
+            padding: 0.85rem 1.1rem; 
+            background: none; 
+            border: none; 
+            font-size: 0.92rem; 
+            color: var(--text-muted); 
+            cursor: pointer; 
+            white-space: nowrap; 
+            font-weight: 500; 
+            transition: all 0.2s ease; 
+            border-bottom: 3px solid transparent; 
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab-btn .tab-icon { font-size: 1.1rem; }
+        .tab-btn.active { 
+            color: var(--primary); 
+            border-bottom-color: var(--primary); 
+            font-weight: 600;
+            background: rgba(43, 108, 176, 0.05);
+        }
+        .tab-btn:hover:not(.active) { color: var(--secondary); background: #f7fafc; }
+        
+        /* Contenedor de contenido */
+        .content-area {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Tab Content */
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Cards & Grids */
+        .card { 
+            background: var(--bg-surface); 
+            border-radius: 10px; 
+            padding: 1.25rem; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03); 
+            border: 1px solid var(--border); 
+            margin-bottom: 1.25rem; 
+        }
+        .card h2 { font-size: 1.2rem; color: #2d3748; margin-bottom: 0.75rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.85rem; }
+        
+        /* Metrics */
+        .metric { 
+            text-align: center; 
+            padding: 1.1rem 0.75rem; 
+            background: var(--bg-body); 
+            border-radius: 8px; 
+            border: 1px solid var(--border); 
+        }
+        .metric-title { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.35rem; font-weight: 600; }
+        .metric-value { font-size: 1.5rem; font-weight: 700; color: var(--primary); }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-top: 0.75rem; font-size: 0.88rem; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        th { background-color: var(--bg-body); color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+        tr:hover { background-color: #f7fafc; }
+        .badge { padding: 4px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .b-op { background: #e6fffa; color: #319795; }
+        .b-inv { background: #ebf8ff; color: #2b6cb0; }
+        .b-fin { background: #fffaf0; color: #dd6b20; }
+        
+        /* Buttons & Forms */
+        .btn { display: inline-block; padding: 0.55rem 1.1rem; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.92rem; font-weight: 500; transition: 0.2s; text-align: center; }
+        .btn:hover { background: var(--accent); }
+        .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn-outline:hover { background: #ebf8ff; }
+        input, select, textarea { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.85rem; font-family: inherit; font-size: 0.9rem; }
+        label { display: block; margin-bottom: 0.35rem; font-weight: 500; color: var(--secondary); font-size: 0.85rem; }
+        
+        /* CSS Bar Chart */
+        .chart-container { 
+            height: 240px; 
+            display: flex; 
+            align-items: flex-end; 
+            justify-content: space-around; 
+            padding: 1.5rem 1rem 0 1rem; 
+            border-left: 2px solid var(--border); 
+            border-bottom: 2px solid var(--border); 
+            margin-top: 1.25rem; 
+            position: relative; 
+            background: #fafbfc;
+            border-radius: 0 0 6px 6px;
+        }
+        .bar-wrapper { display: flex; flex-direction: column; align-items: center; width: 26%; height: 100%; justify-content: flex-end; }
+        .bar { width: 100%; background: var(--primary); border-radius: 4px 4px 0 0; transition: height 0.8s ease-out; position: relative; display: flex; justify-content: center; align-items: flex-start; }
+        .bar:hover { background: var(--accent); cursor: pointer; }
+        .bar-value { margin-top: -22px; font-weight: bold; font-size: 0.8rem; color: var(--secondary); }
+        .bar-label { margin-top: 8px; font-size: 0.78rem; font-weight: 600; text-align: center; color: var(--text-muted); }
+        
+        /* Toast/Modal */
+        .toast { position: fixed; bottom: -100px; right: 20px; background: var(--success); color: white; padding: 0.85rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,0.18); transition: 0.3s; z-index: 1000; font-size: 0.9rem; font-weight: 500; }
+        .toast.show { bottom: 20px; }
+
+        /* ========================================================= */
+        /* RESPONSIVE MÓVIL: DISEÑO EN 2 BLOQUES (IZQUIERDA Y DERECHA)*/
+        /* ========================================================= */
+        @media (max-width: 768px) {
+            header { padding: 0.6rem 0.85rem; }
+            .logo { font-size: 1.05rem; }
+            .user-badge { display: none; }
+            
+            .container { 
+                padding: 0 0.35rem; 
+                margin: 0.5rem auto; 
+            }
+            
+            /* Contenedor principal dividido en 2 columnas: Izquierda (botones) y Derecha (campos) */
+            .app-layout {
+                flex-direction: row; 
+                gap: 0.45rem;
+                align-items: flex-start;
+            }
+            
+            /* BLOQUE IZQUIERDO: 6 botones verticales */
+            .tabs-nav {
+                flex-direction: column; 
+                width: 95px;
+                min-width: 95px;
+                max-width: 95px;
+                border: none;
+                background: transparent;
+                padding: 0;
+                gap: 0.35rem;
+                position: sticky;
+                top: 4rem;
+                border-right: 1.5px solid var(--border);
+                padding-right: 0.35rem;
+                border-radius: 0;
+            }
+            
+            .tab-btn {
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                padding: 0.55rem 0.25rem;
+                font-size: 0.68rem;
+                line-height: 1.15;
+                white-space: normal;
+                border-bottom: none;
+                border-left: 3px solid transparent;
+                border-radius: 6px;
+                background: var(--bg-surface);
+                border: 1px solid var(--border);
+                gap: 3px;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            }
+            .tab-btn .tab-icon { font-size: 1.25rem; margin-bottom: 2px; }
+            .tab-btn .tab-text { font-weight: 500; }
+            
+            .tab-btn.active {
+                border-left-color: var(--primary);
+                border-color: var(--primary);
+                background: #ebf8ff;
+                color: var(--primary);
+                font-weight: 700;
+            }
+            
+            /* BLOQUE DERECHO: Campos de procesos, tablas, gráficos */
+            .content-area {
+                flex: 1;
+                min-width: 0;
+                padding-left: 0.15rem;
+            }
+            
+            .card {
+                padding: 0.85rem 0.65rem;
+                border-radius: 8px;
+                margin-bottom: 0.85rem;
+            }
+            .card h2 { font-size: 1.05rem; margin-bottom: 0.5rem; }
+            
+            .grid-2, .grid-3 {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            
+            .metric { padding: 0.75rem 0.5rem; }
+            .metric-value { font-size: 1.25rem; }
+            .metric-title { font-size: 0.72rem; }
+            
+            .chart-container { height: 160px; padding: 1.25rem 0.35rem 0 0.35rem; }
+            .bar-label { font-size: 0.65rem; }
+            .bar-value { font-size: 0.7rem; margin-top: -18px; }
+            
+            table { font-size: 0.72rem; }
+            th, td { padding: 6px 6px; }
+            
+            .btn { font-size: 0.82rem; padding: 0.5rem 0.75rem; }
+            input, select, textarea { font-size: 0.82rem; padding: 0.5rem; margin-bottom: 0.65rem; }
+            label { font-size: 0.78rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">🏛️ NIIF 18 Simulator</div>
+        <div class="user-badge">👤 Auditor Pedagógico</div>
+    </header>
+
+    <div class="container">
+        <div class="app-layout">
+            
+            <!-- BLOQUE IZQUIERDO EN MÓVIL / BARRA SUPERIOR EN PC: Los 6 Botones de los 6 Pasos -->
+            <nav class="tabs-nav" aria-label="Fases del Cierre NIIF 18">
+                <button class="tab-btn active" onclick="openTab('ingesta', this)">
+                    <span class="tab-icon">📥</span>
+                    <span class="tab-text">1. Ingesta</span>
+                </button>
+                <button class="tab-btn" onclick="openTab('matriz', this)">
+                    <span class="tab-icon">🏷️</span>
+                    <span class="tab-text">2. Matriz</span>
+                </button>
+                <button class="tab-btn" onclick="openTab('arbol', this)">
+                    <span class="tab-icon">📊</span>
+                    <span class="tab-text">3. Árbol EEFF</span>
+                </button>
+                <button class="tab-btn" onclick="openTab('mpm', this)">
+                    <span class="tab-icon">📈</span>
+                    <span class="tab-text">4. MPM</span>
+                </button>
+                <button class="tab-btn" onclick="openTab('export', this)">
+                    <span class="tab-icon">📑</span>
+                    <span class="tab-text">5. Exportar</span>
+                </button>
+                <button class="tab-btn" onclick="openTab('docs', this)">
+                    <span class="tab-icon">📚</span>
+                    <span class="tab-text">6. Doctrinas</span>
+                </button>
+            </nav>
+
+            <!-- BLOQUE DERECHO EN MÓVIL / CONTENEDOR PRINCIPAL: Campos de Procesos, Gráficas y Tablas -->
+            <main class="content-area">
+
+                <!-- Paso 1: Ingesta -->
+                <div id="ingesta" class="tab-content active">
+                    <div class="grid-2">
+                        <div class="card">
+                            <h2>Bandeja de Entrada Segura</h2>
+                            <p style="margin-bottom: 1rem; color: var(--text-muted); font-size: 0.85rem;">Simule la carga de un balance contable desde su ERP (maqueta pedagógica).</p>
+                            <div style="border: 2px dashed var(--border); padding: 2rem 1rem; text-align: center; border-radius: 8px; margin-bottom: 1rem; background: #f7fafc;">
+                                <span style="font-size: 2.5rem;">📁</span>
+                                <p style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem;">Arrastre CSV/Excel aquí</p>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                <button class="btn" style="width: 100%;" onclick="showToast('✅ Simulación: Balanza de Comprobación procesada.')">Cargar Demo</button>
+                                <button class="btn btn-outline" style="width: 100%;" onclick="resetSimulation()">🗑️ Resetear</button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h2>Vista Previa del Dataset</h2>
+                            <div class="metric" style="margin-bottom: 0.85rem;">
+                                <div class="metric-title">Balance / Tolerancia Cero</div>
+                                <div class="metric-value" id="metric-balance" style="color: var(--success);">$ 0.00</div>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <tr><th>Cuenta</th><th>Descripción</th><th>Saldo ($)</th></tr>
+                                    <tr><td>4100</td><td>Ventas de Bienes</td><td>(850,000)</td></tr>
+                                    <tr><td>5100</td><td>Costo de Ventas</td><td>350,000</td></tr>
+                                    <tr><td>5400</td><td>Gastos por Intereses</td><td>35,000</td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Matriz -->
+                <div id="matriz" class="tab-content">
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <h2>Matriz de Reclasificación (NIIF 18)</h2>
+                            <button class="btn btn-outline" style="font-size: 0.8rem;" onclick="showToast('✅ Reglas automáticas aplicadas.')">✨ Auto-Mapeo</button>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <tr><th>ID Cuenta</th><th>Nombre del Rubro</th><th>Saldo Bruto</th><th>Asignación IFRS 18 (Tocar para cambiar)</th></tr>
+                                <tr>
+                                    <td>4100</td><td>Ventas de Bienes</td><td>$ 850,000</td>
+                                    <td><span class="badge b-op" style="cursor:pointer;" onclick="toggleBadge(this)">1. Operativo (Residual)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>4200</td><td>Ingresos por Dividendos</td><td>$ 45,000</td>
+                                    <td><span class="badge b-inv" style="cursor:pointer;" onclick="toggleBadge(this)">2. Inversión</span></td>
+                                </tr>
+                                <tr>
+                                    <td>5400</td><td>Gastos por Intereses</td><td>$ (35,000)</td>
+                                    <td><span class="badge b-fin" style="cursor:pointer;" onclick="toggleBadge(this)">3. Financiación</span></td>
+                                </tr>
+                                <tr>
+                                    <td>5500</td><td>Impuestos a las Ganancias</td><td>$ (25,000)</td>
+                                    <td><span class="badge" style="background:#fed7d7; color:#c53030; cursor:pointer;" onclick="toggleBadge(this)">4. Impuestos</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <p style="margin-top: 0.85rem; font-size: 0.8rem; color: var(--text-muted);">* Toque las etiquetas de color para simular el cambio de categoría normativa.</p>
+                    </div>
+                </div>
+
+                <!-- Paso 3: Árbol EEFF -->
+                <div id="arbol" class="tab-content">
+                    <div class="card">
+                        <h2>Subtotales Mandatorios NIIF 18</h2>
+                        <div class="grid-3" style="margin-top: 1rem;">
+                            <div class="metric">
+                                <div class="metric-title">1. Resultado Operativo</div>
+                                <div class="metric-value">$850,000</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-title">2. Antes de Fin./Imp.</div>
+                                <div class="metric-value">$895,000</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-title">3. Periodo Neto</div>
+                                <div class="metric-value">$835,000</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h2>Análisis Gráfico de Rendimiento</h2>
+                        <div class="chart-container">
+                            <!-- Barras animadas con CSS -->
+                            <div class="bar-wrapper">
+                                <div class="bar-value">$850k</div>
+                                <div class="bar" style="height: 0%" data-h="75%"></div>
+                                <div class="bar-label">1. Operativo</div>
+                            </div>
+                            <div class="bar-wrapper">
+                                <div class="bar-value">$895k</div>
+                                <div class="bar" style="height: 0%; background: #38a169;" data-h="90%"></div>
+                                <div class="bar-label">2. Pre-Fin/Imp</div>
+                            </div>
+                            <div class="bar-wrapper">
+                                <div class="bar-value">$835k</div>
+                                <div class="bar" style="height: 0%; background: #805ad5;" data-h="65%"></div>
+                                <div class="bar-label">3. Periodo Neto</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-outline" style="margin-top: 1.25rem; width: 100%;" onclick="animateChart()">▶ Reproducir Animación de Gráfica</button>
+                    </div>
+                </div>
+
+                <!-- Paso 4: MPM -->
+                <div id="mpm" class="tab-content">
+                    <div class="grid-2">
+                        <div class="card">
+                            <h2>Registro de Medida Gerencial (MPM)</h2>
+                            <p style="color:var(--text-muted); font-size:0.82rem; margin-bottom:0.75rem;">Simule el anclaje de un EBITDA Ajustado a los subtotales NIIF.</p>
+                            
+                            <label>Nombre de la Métrica (Non-GAAP)</label>
+                            <input type="text" value="EBITDA Ajustado por Reestructuración" readonly>
+                            
+                            <label>Subtotal Base (Anclaje Normativo)</label>
+                            <select>
+                                <option>1. Resultado Operativo ($850,000)</option>
+                                <option>3. Resultado del Periodo ($835,000)</option>
+                            </select>
+                            
+                            <label>Efecto Bruto del Ajuste</label>
+                            <input type="text" value="$ 150,000.00" readonly>
+                            
+                            <label>Justificación / Rationale</label>
+                            <textarea rows="2" readonly>Costos atípicos derivados del cierre de la planta en la zona norte.</textarea>
+                            
+                            <button class="btn" style="width: 100%;" onclick="showToast('✅ Nota a los EEFF (Conciliación MPM) generada para la auditoría.')">Consolidar y Auditar MPM</button>
+                        </div>
+                        
+                        <div class="card">
+                            <h2>Conciliación Auditada</h2>
+                            <div style="background: #fffaf0; padding: 0.75rem; border-left: 4px solid #dd6b20; margin-bottom: 0.75rem; font-size: 0.82rem;">
+                                <strong>Nota 14.b:</strong> La gerencia evalúa el desempeño excluyendo gastos atípicos de reestructuración.
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table>
+                                    <tr><th>Rubro</th><th>Impacto Neto</th><th>Efecto Fiscal</th></tr>
+                                    <tr><td>Resultado Operativo IFRS 18</td><td>$ 850,000</td><td>-</td></tr>
+                                    <tr><td>(+) Ajuste Reestructuración</td><td>$ 150,000</td><td>$ (45,000)</td></tr>
+                                    <tr style="background:#f7fafc; font-weight:bold;">
+                                        <td>EBITDA Ajustado (MPM)</td><td style="color:var(--primary)">$ 1,000,000</td><td>$ (300,000)</td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 5: Exportación -->
+                <div id="export" class="tab-content">
+                    <div class="card" style="text-align: center; padding: 2.5rem 1rem;">
+                        <h2>Centro de Exportación Regulatoria</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.88rem;">Descargue los papeles de trabajo y el reporte de estados financieros auditados.</p>
+                        <div class="grid-2" style="max-width: 500px; margin: 0 auto;">
+                            <button class="btn btn-outline" onclick="showToast('📥 Simulando descarga: EEFF_NIIF18.xlsx')">📊 Descargar Excel</button>
+                            <button class="btn btn-outline" onclick="showToast('📥 Simulando descarga: Mapeo_Cuentas.csv')">📝 Descargar CSV</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 6: Visor Doctrinal -->
+                <div id="docs" class="tab-content">
+                    <div class="card">
+                        <h2>Visor Doctrinal IASB</h2>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.88rem;">Consulta rápida del marco normativo IFRS 18 (Simulación).</p>
+                        <select style="max-width: 400px;" onchange="showToast('📖 Cargando documento normativo...')">
+                            <option>Vol 1. Categorías y Subtotales</option>
+                            <option>Vol 2. Medidas de Rendimiento de la Gerencia (MPM)</option>
+                            <option>Vol 3. Agrupación y Desagregación</option>
+                        </select>
+                        <div style="background: #f7fafc; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; margin-top: 0.75rem; font-family: serif; color: #2d3748; font-size: 0.88rem;">
+                            <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Extracto Normativo</h3>
+                            <p>Una entidad clasificará todos sus ingresos y gastos en el estado del resultado del periodo en una de las siguientes cinco categorías:</p>
+                            <ul style="margin-left: 1.5rem; margin-top: 0.5rem; line-height: 1.6;">
+                                <li>(a) de operación;</li>
+                                <li>(b) de inversión;</li>
+                                <li>(c) de financiación;</li>
+                                <li>(d) de impuestos a las ganancias; y</li>
+                                <li>(e) de operaciones discontinuadas.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">Mensaje de prueba</div>
+
+    <script>
+        // Lógica de Pestañas
+        function openTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+            
+            // Disparar animación si es la pestaña de árbol
+            if(tabId === 'arbol') { setTimeout(animateChart, 200); }
+        }
+
+        // Lógica de Toast (Notificaciones)
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Simulación interactiva de clicks en la tabla
+        function toggleBadge(el) {
+            const cats = [
+                {t: "1. Operativo (Residual)", c: "b-op", bg: "#e6fffa", co: "#319795"},
+                {t: "2. Inversión", c: "b-inv", bg: "#ebf8ff", co: "#2b6cb0"},
+                {t: "3. Financiación", c: "b-fin", bg: "#fffaf0", co: "#dd6b20"}
+            ];
+            let current = cats.findIndex(c => el.innerText.includes(c.t.split(' ')[0]));
+            if(current === -1) current = 0;
+            let next = (current + 1) % cats.length;
+            
+            el.innerText = cats[next].t;
+            el.style.background = cats[next].bg;
+            el.style.color = cats[next].co;
+            showToast("🔄 Reclasificación actualizada en memoria.");
+        }
+
+        // Función de reseteo pedagógico
+        function resetSimulation() {
+            const balance = document.getElementById('metric-balance');
+            if (balance) balance.textContent = "$ 0.00";
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach(b => b.style.height = '0%');
+            showToast("🗑️ Sesión pedagógica reseteada a valores iniciales.");
+        }
+
+        // Lógica de Gráfica CSS
+        function animateChart() {
+            const bars = document.querySelectorAll('.bar');
+            // Reset
+            bars.forEach(b => b.style.height = '0%');
+            // Animate
+            setTimeout(() => {
+                bars.forEach(b => {
+                    b.style.height = b.getAttribute('data-h');
+                });
+            }, 100);
+        }
+    </script>
+</body>
+</html>

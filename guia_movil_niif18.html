@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Guía de Bolsillo - App NIIF 18</title>
+    <!-- [¤doctrina_ccsd_prompting] -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body, html { height: 100%; width: 100%; overflow: hidden; background-color: #f0f2f5; }
+        .slider-container { width: 100%; height: 100%; display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+        .slider-container::-webkit-scrollbar { display: none; }
+        .slide { flex: 0 0 100%; width: 100%; height: 100%; scroll-snap-align: start; display: flex; flex-direction: column; padding: 20px; padding-bottom: 60px; justify-content: center; position: relative; }
+        .card { background: white; border-radius: 20px; padding: 30px 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: space-evenly; }
+        
+        .icon { font-size: 3.5rem; margin-bottom: 10px; }
+        h1 { color: #1a365d; font-size: 1.8rem; margin-bottom: 15px; line-height: 1.2; }
+        h2 { color: #2d3748; font-size: 1.4rem; margin-bottom: 10px; }
+        p { color: #4a5568; font-size: 1.1rem; line-height: 1.5; margin-bottom: 15px; }
+        .instruction { background-color: #ebf8ff; color: #2b6cb0; padding: 15px; border-radius: 12px; font-weight: 500; font-size: 1rem; border-left: 4px solid #3182ce; text-align: left; }
+        
+        .nav-dots { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 8px; z-index: 10; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e0; transition: background 0.3s; }
+        
+        /* Theming for different phases */
+        .slide:nth-child(1) .card { border-top: 8px solid #2b6cb0; }
+        .slide:nth-child(2) .card { border-top: 8px solid #38a169; }
+        .slide:nth-child(3) .card { border-top: 8px solid #d69e2e; }
+        .slide:nth-child(4) .card { border-top: 8px solid #e53e3e; }
+        .slide:nth-child(5) .card { border-top: 8px solid #805ad5; }
+        .slide:nth-child(6) .card { border-top: 8px solid #319795; }
+        .slide:nth-child(7) .card { border-top: 8px solid #4a5568; }
+        
+        .swipe-indicator { position: absolute; bottom: 10px; right: 20px; color: #a0aec0; font-size: 0.9rem; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; transform: translateX(0); } 50% { opacity: 1; transform: translateX(5px); } 100% { opacity: 0.5; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="slider-container" id="slider">
+        <!-- Portada -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">🏛️</div>
+                <h1>Guía Rápida:<br>Plataforma NIIF 18</h1>
+                <p>Aprende a ejecutar tu cierre contable en 6 pasos utilizando nuestra nueva plataforma de Reclasificación Corporativa.</p>
+                <div class="instruction">
+                    💡 <b>Tip:</b> Desliza hacia la izquierda para ver cada fase del proceso operativo.
+                </div>
+                <div class="swipe-indicator">Desliza ➔</div>
+            </div>
+        </div>
+
+        <!-- Fase 1 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">📥</div>
+                <h2>Fase 1: Ingesta</h2>
+                <p>Carga los saldos en bruto de tu sistema ERP.</p>
+                <div class="instruction">
+                    ✓ Arrastra y suelta la Balanza de Comprobación (CSV/Excel).<br>
+                    ✓ Verifica que el sistema marque "Tolerancia Cero" (cuadre perfecto).
+                </div>
+            </div>
+        </div>
+
+        <!-- Fase 2 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">🏷️</div>
+                <h2>Fase 2: Reclasificación</h2>
+                <p>Asigna categorías a las cuentas.</p>
+                <div class="instruction">
+                    ✓ Usa la tabla para clasificar cuentas de Inversión, Financiación e Impuestos.<br>
+                    ✓ <b>Recuerda:</b> La categoría "Operativa" es residual (asignada por defecto).
+                </div>
+            </div>
+        </div>
+
+        <!-- Fase 3 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">📊</div>
+                <h2>Fase 3: Árbol EEFF</h2>
+                <p>Verifica los subtotales automatizados.</p>
+                <div class="instruction">
+                    ✓ Audita los 3 subtotales obligatorios generados.<br>
+                    ✓ <b>Uso de Gráficas:</b> Analiza la gráfica de barras central para comparar visualmente el margen operativo contra la utilidad neta.<br>
+                    ✓ Despliega las categorías jerárquicas inferiores para detalles.
+                </div>
+            </div>
+        </div>
+
+        <!-- Fase 4 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">📈</div>
+                <h2>Fase 4: Conciliación MPM</h2>
+                <p>Ingresa medidas gerenciales (ej. EBITDA).</p>
+                <div class="instruction">
+                    ✓ Define tu MPM y conéctala a un Subtotal NIIF.<br>
+                    ✓ El sistema calculará el impacto y el efecto fiscal para la nota a los estados financieros.
+                </div>
+            </div>
+        </div>
+
+        <!-- Fase 5 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">📑</div>
+                <h2>Fase 5: Exportación</h2>
+                <p>Descarga tus papeles de trabajo finales.</p>
+                <div class="instruction">
+                    ✓ Haz clic en "Descargar Excel/CSV".<br>
+                    ✓ Entrega este reporte validado directamente a tus auditores.
+                </div>
+            </div>
+        </div>
+        
+        <!-- Fase 6 -->
+        <div class="slide">
+            <div class="card">
+                <div class="icon">📚</div>
+                <h2>Fase 6: Soporte Doctrinal</h2>
+                <p>¿Tienes dudas normativas?</p>
+                <div class="instruction">
+                    ✓ Consulta la pestaña del Visor Doctrinal en la App para leer resúmenes directos del IASB sin salir de tu ventana de trabajo.<br><br>
+                    ✅ <b>¡Estás listo para iniciar tu cierre NIIF 18!</b>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicadores de página -->
+    <div class="nav-dots" id="dots">
+        <div class="dot" style="background:#4a5568"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+        <div class="dot"></div>
+    </div>
+
+    <script>
+        const slider = document.getElementById('slider');
+        const dots = document.querySelectorAll('.dot');
+        
+        slider.addEventListener('scroll', () => {
+            const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+            dots.forEach((dot, i) => {
+                dot.style.background = i === index ? '#4a5568' : '#cbd5e0';
+            });
+        });
+
+        // Avance con clic izquierdo
+        document.addEventListener('click', (e) => {
+            slider.scrollBy({ left: slider.offsetWidth, behavior: 'smooth' });
+        });
+
+        // Retroceso con clic derecho
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); // Evitar el menú contextual nativo
+            slider.scrollBy({ left: -slider.offsetWidth, behavior: 'smooth' });
+        });
+
+        // Avance y retroceso con la rueda del ratón (scroll)
+        document.addEventListener('wheel', (e) => {
+            if (e.deltaY > 0 || e.deltaX > 0) {
+                // Scroll hacia abajo/derecha avanza
+                slider.scrollBy({ left: slider.offsetWidth, behavior: 'smooth' });
+            } else {
+                // Scroll hacia arriba/izquierda retrocede
+                slider.scrollBy({ left: -slider.offsetWidth, behavior: 'smooth' });
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>

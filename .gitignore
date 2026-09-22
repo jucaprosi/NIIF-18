@@ -1,0 +1,25 @@
+# Entornos virtuales y cachés
+venv/
+__pycache__/
+.pytest_cache/
+
+# Archivos de datos sensibles y reportes de prueba
+balance_prueba_niif18_sap_business_one.xlsx
+*.xlsx
+*.csv
+data/
+
+# Artefactos temporales y scripts de diagnóstico
+edit_app.py
+payload.json
+.test_verdict.json
+
+# Gobernanza y metadatos del Agente (Reglas)
+governance/
+.agents/
+AGENTS.md
+
+# Scripts exclusivos del entorno local Windows
+run.bat
+setup.bat
+test.bat
