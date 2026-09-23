@@ -1,0 +1,75 @@
+# Tema corporativo NIIF 18 Reporting Matrix
+# Paleta profesional de baja saturación (inspirada en dashboards financieros de referencia),
+# con verdes/rojos semánticos legibles para variaciones de resultado y colores de marca purificados.
+
+[theme]
+base = "light"
+primaryColor = "#1D4ED8"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F7FA"
+textColor = "#1F2937"
+linkColor = "#1D4ED8"
+borderColor = "#E2E8F0"
+codeTextColor = "#1F2937"
+codeBackgroundColor = "#F5F7FA"
+showWidgetBorder = true
+showSidebarBorder = true
+baseRadius = "8px"
+buttonRadius = "8px"
+
+font = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "'Inter':https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseFontSize = 14
+baseFontWeight = 400
+headingFontSizes = ["26px", "21px", "18px", "16px", "14px", "13px"]
+headingFontWeights = [700, 600, 600, 600, 500, 500]
+linkUnderline = false
+
+greenColor = "#15803D"
+redColor = "#B91C1C"
+yellowColor = "#B45309"
+orangeColor = "#C2410C"
+blueColor = "#1D4ED8"
+violetColor = "#6D28D9"
+grayColor = "#64748B"
+
+chartCategoricalColors = ["#1D4ED8", "#15803D", "#6D28D9", "#C2410C", "#B91C1C", "#0891B2", "#64748B"]
+chartSequentialColors = ["#EFF6FF", "#DBEAFE", "#BFDBFE", "#93C5FD", "#60A5FA", "#3B82F6", "#2563EB", "#1D4ED8", "#1E40AF", "#1E3A8A"]
+
+dataframeBorderColor = "#E2E8F0"
+dataframeHeaderBackgroundColor = "#F5F7FA"
+
+[theme.sidebar]
+backgroundColor = "#F5F7FA"
+secondaryBackgroundColor = "#EDF1F5"
+textColor = "#1F2937"
+borderColor = "#E2E8F0"
+primaryColor = "#1D4ED8"
+
+[theme.dark]
+primaryColor = "#60A5FA"
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"
+linkColor = "#60A5FA"
+borderColor = "#334155"
+codeTextColor = "#CBD5E1"
+codeBackgroundColor = "#1E293B"
+greenColor = "#34D399"
+redColor = "#F87171"
+yellowColor = "#FBBF24"
+orangeColor = "#FB923C"
+blueColor = "#60A5FA"
+violetColor = "#A78BFA"
+grayColor = "#94A3B8"
+chartCategoricalColors = ["#60A5FA", "#34D399", "#A78BFA", "#F87171", "#FBBF24", "#38BDF8", "#94A3B8"]
+dataframeBorderColor = "#334155"
+dataframeHeaderBackgroundColor = "#1E293B"
+
+[theme.dark.sidebar]
+backgroundColor = "#0F172A"
+secondaryBackgroundColor = "#1E293B"
+textColor = "#F1F5F9"
+borderColor = "#334155"
+primaryColor = "#60A5FA"

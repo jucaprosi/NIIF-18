@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import os
-import re
 
 # [¤protocolo_migracion_legacy] ZERAG BIOS Clean-Room Pattern (Presentador Puro)
+# Migración Fase 0 completada: toda la lógica de negocio vive en las compuertas
+# _service.py de cada sala (PRD.md §10, TASKS.md ¤fase_migracion_adpa). Este archivo
+# solo orquesta Streamlit y llama a las salas — no calcula ni clasifica nada por sí mismo.
 from sala_importacion import _service as imp_svc
 from sala_catalogo import _service as cat_svc
 from sala_clasificacion import _service as class_svc
@@ -12,37 +12,16 @@ from sala_estados_financieros import _service as fs_svc
 from sala_mpm import _service as mpm_svc
 from sala_reportes import _service as rep_svc
 from sala_validacion import _service as val_svc
+from sala_auditoria import _service as aud_svc
+from sala_entidad import _service as ent_svc
 
-CATEGORIAS_NIIF18 = [
-    "0. Balance General (No P&L / Excluir)",
-    "1. Operación (Ingresos / Gastos Operativos)",
-    "2. Inversión (Ingresos / Gastos por Inversiones)",
-    "3. Financiación (Costos / Pasivos Financieros)",
-    "4. Impuestos a las Ganancias",
-    "5. Operaciones Discontinuadas"
-]
+CIIU_PATH = "data/ciiu.xlsx"
+DIRECTORIO_SCVS_PATH = "data/directorio_companias_scvs.xlsx"
 
-TITULOS_DOCTRINALES = {
-    "01_resumen_niif18.md": "Volumen 1: Marco General y Alcance de la NIIF 18",
-    "02_categorias_estado_resultados.md": "Volumen 2: Las 5 Categorías Obligatorias de Resultados",
-    "03_subtotales_mandatorios.md": "Volumen 3: Los 3 Subtotales Mandatorios de Rendimiento",
-    "04_mpm_medidas_gerencia.md": "Volumen 4: Medidas Definidas por la Gerencia (MPM)",
-    "05_agregacion_desagregacion.md": "Volumen 5: Principios de Agregación y Desagregación",
-    "06_transicion_comparativos.md": "Volumen 6: Disposiciones Transitorias y Periodos Comparativos",
-    "07_catalogo_cuentas_mapeo.md": "Volumen 7: Guía de Reclasificación y Mapeo Contable"
-}
 
 def init_theme():
-    st.set_page_config(page_title="NIIF 18 Reporting Matrix", layout="wide", page_icon="🏛️", initial_sidebar_state="expanded")
-    st.markdown("""
-        <style>
-        .block-container { padding-top: 2rem; padding-bottom: 2rem; }
-        .stDataFrame { font-size: 0.85rem !important; }
-        .metric-card { background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 1rem; margin-bottom: 1rem; }
-        h1, h2, h3 { color: #2c3e50; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .stButton>button { border-radius: 4px; border: 1px solid #ced4da; font-weight: 500; }
-        </style>
-    """, unsafe_allow_html=True)
+    st.set_page_config(page_title="NIIF 18 Reporting Matrix", layout="wide", page_icon=":material/account_balance:", initial_sidebar_state="expanded")
+
 
 def reset_app_state():
     new_version = st.session_state.get('uploader_version', 0) + 1
@@ -50,116 +29,151 @@ def reset_app_state():
     st.session_state['uploader_version'] = new_version
     st.rerun()
 
-def clean_numeric_series(series):
-    return pd.to_numeric(
-        series.astype(str).str.replace('$', '', regex=False).str.replace('€', '', regex=False)
-        .str.replace('£', '', regex=False).str.replace(',', '', regex=False)
-        .str.replace('(', '-', regex=False).str.replace(')', '', regex=False).str.strip(),
-        errors='coerce'
-    ).fillna(0.0)
 
-def auto_classify_niif18_series(df):
-    categories = []
-    for _, row in df.iterrows():
-        cta, desc = str(row['Cuenta']).strip(), str(row['Descripcion']).strip().lower()
-        if cta.startswith(('1', '2', '3')) or any(w in desc for w in ['activo', 'pasivo', 'patrimonio', 'capital', 'bancos', 'caja', 'proveedor', 'cliente', 'inventario', 'edificio', 'terreno', 'obligacion', 'cuenta por']):
-            if not any(w in desc for w in ['ingreso', 'gasto', 'costo']):
-                categories.append("0. Balance General (No P&L / Excluir)")
-                continue
-        if any(w in desc for w in ['dividendo', 'inversion', 'inversión', 'asociada', 'negocio conjunto', 'participacion']):
-            categories.append("2. Inversión (Ingresos / Gastos por Inversiones)")
-        elif cta.startswith(('54', '6')) or any(w in desc for w in ['interes', 'interés', 'financier', 'bancari', 'prestamo', 'préstamo', 'deuda', 'arrendamiento financiero']):
-            categories.append("3. Financiación (Costos / Pasivos Financieros)")
-        elif cta.startswith(('55', '59')) or any(w in desc for w in ['impuesto a la renta', 'impuesto a las ganancias', 'gasto por impuesto', 'impuesto diferido']):
-            categories.append("4. Impuestos a las Ganancias")
-        elif any(w in desc for w in ['discontinuad', 'interrumpid', 'abandonad']):
-            categories.append("5. Operaciones Discontinuadas")
-        else:
-            categories.append("1. Operación (Ingresos / Gastos Operativos)")
-    return categories
+@st.dialog("Confirmar reinicio")
+def confirm_reset():
+    st.write("Esto borrará la balanza cargada, la matriz de reclasificación, la configuración de entidad y las MPM registradas en esta sesión. Esta acción no se puede deshacer.")
+    with st.container(horizontal=True):
+        if st.button("Cancelar", width="stretch"):
+            st.rerun()
+        if st.button("Sí, reiniciar", type="primary", icon=":material/delete_forever:", width="stretch"):
+            reset_app_state()
 
-def is_income_account(cta, desc, saldo):
-    # Los términos de gasto prevalecen: "Costo de ventas" o "Gasto por impuesto a las ganancias" no son ingresos.
-    if cta.startswith('4'):
-        return True
-    if any(w in desc for w in ['costo', 'gasto', 'impuesto', 'depreciaci', 'amortizaci', 'comisi', 'provisi', 'perdida', 'pérdida', 'deterioro']):
-        return False
-    if any(w in desc for w in ['ingreso', 'venta', 'honorario', 'ganancia', 'rendimiento', 'dividendo', 'utilidad']):
-        return True
-    if 'interes' in desc or 'interés' in desc:
-        return saldo < 0
-    if cta[:1] in ('5', '6', '7', '8', '9'):
-        return False
-    return saldo < 0
 
-def calculate_pl_contribution(row):
-    if str(row['Categoria_NIIF18']).startswith('0.'):
-        return 0.0
-    cta, desc, saldo = str(row['Cuenta']).strip(), str(row['Descripcion']).strip().lower(), float(row['Saldo'])
-    return abs(saldo) if is_income_account(cta, desc, saldo) else -abs(saldo)
+def cuentas_column_config(extra=None):
+    config = {
+        "Cuenta": st.column_config.TextColumn("Cuenta", pinned=True),
+        "Descripcion": st.column_config.TextColumn("Descripción"),
+        "Saldo": st.column_config.NumberColumn("Saldo", format="$ %.2f"),
+    }
+    if extra:
+        config.update(extra)
+    return config
 
-def read_excel_smart_header(excel_file, sheet_name):
-    df_preview = pd.read_excel(excel_file, sheet_name=sheet_name, header=None, nrows=15)
-    best_row, max_non_na = 0, 0
-    for r in range(len(df_preview)):
-        non_na = df_preview.iloc[r].dropna().count()
-        if non_na > max_non_na and non_na >= 2:
-            max_non_na, best_row = non_na, r
-    df_full = pd.read_excel(excel_file, sheet_name=sheet_name, header=best_row)
-    return df_full.dropna(how='all', axis=1).dropna(how='all', axis=0)
 
-def infer_columns_by_mathematical_weights(df):
-    cols = list(df.columns)
-    if len(cols) < 2:
-        return cols[0], cols[0], cols[0], 1.0
-    sample = df.head(min(len(df), 120))
-    scores_cta, scores_desc, scores_saldo = {}, {}, {}
-    total_cols = max(1, len(cols) - 1)
-    for i, col in enumerate(cols):
-        s = sample[col].astype(str).str.strip()
-        ordinal = i / total_cols
-        clean_num = clean_numeric_series(s)
-        num_ratio = float((~clean_num.isna()).mean())
-        has_neg = 1.0 if (clean_num < 0).any() else 0.0
-        code_ratio = float((s.str.match(r'^[0-9A-Za-z\.\-_/]+$') & (~s.str.contains(' ', regex=False))).mean()) if len(s) > 0 else 0.0
-        spaces_ratio = float(s.str.contains(r'\s+', regex=True).mean()) if len(s) > 0 else 0.0
-        avg_char_len, uniq_ratio = float(s.str.len().mean()) if len(s) > 0 else 0.0, float(s.nunique() / max(1, len(s)))
-        scores_saldo[col] = (0.50 * num_ratio) + (0.20 * has_neg) + (0.15 * (1.0 - code_ratio)) + (0.15 * ordinal)
-        scores_cta[col] = (0.40 * code_ratio) + (0.30 * uniq_ratio) + (0.20 * (1.0 - spaces_ratio)) + (0.10 * (1.0 - ordinal))
-        scores_desc[col] = (0.50 * spaces_ratio) + (0.30 * (1.0 - num_ratio)) + (0.20 * min(1.0, avg_char_len / 15.0))
-    best_score, best_assignment = -1.0, (cols[0], cols[min(1, len(cols)-1)], cols[-1])
-    for c_i in cols:
-        for d_j in cols:
-            if d_j == c_i and len(cols) >= 3: continue
-            for s_k in cols:
-                if (s_k == c_i or s_k == d_j) and len(cols) >= 3: continue
-                total = scores_cta[c_i] + scores_desc[d_j] + scores_saldo[s_k]
-                if total > best_score:
-                    best_score, best_assignment = total, (c_i, d_j, s_k)
-    return best_assignment[0], best_assignment[1], best_assignment[2], min(100.0, max(10.0, (best_score / 3.0) * 100.0))
+@st.cache_data(show_spinner="Cargando directorio SCVS (una sola vez por sesión)...")
+def _cargar_directorio_cacheado():
+    df = ent_svc.cargar_directorio(DIRECTORIO_SCVS_PATH)
+    fecha = ent_svc.fecha_snapshot_directorio(DIRECTORIO_SCVS_PATH)
+    return df, fecha
 
+
+@st.cache_data(show_spinner="Cargando catálogo CIIU (una sola vez por sesión)...")
+def _cargar_ciiu_cacheado():
+    return ent_svc.cargar_catalogo_ciiu(CIIU_PATH)
+
+
+def configuracion_entidad_activa():
+    cfg = st.session_state.get('configuracion_entidad')
+    if cfg and cfg.get('origen_actividad_principal') in ('confirmado_usuario', 'manual'):
+        return cfg
+    return None
+
+
+def clasificar_con_configuracion(df):
+    cfg = st.session_state.get('configuracion_entidad') or {}
+    return class_svc.clasificar_dataframe(
+        df,
+        financiacion_es_actividad_principal=cfg.get('financiacion_es_actividad_principal', False),
+        inversion_es_actividad_principal=cfg.get('inversion_es_actividad_principal', False),
+    )
+
+
+# ¤interfaz
 def main():
     init_theme()
     if 'uploader_version' not in st.session_state:
         st.session_state['uploader_version'] = 0
-    with st.sidebar:
-        st.header("⚙️ Control de Sesión")
-        if st.button("🗑️ Resetear Todos los Valores", width="stretch"):
-            reset_app_state()
-        st.divider()
-        st.info("📐 **NIIF 18 P&L:** La norma aplica al Estado de Resultados. Cuentas de Balance (1, 2, 3) se segregan a la Categoría 0.")
+    if 'bitacora_auditoria' not in st.session_state:
+        st.session_state['bitacora_auditoria'] = []
 
-    st.title("🏛️ NIIF 18 Financial Reporting Matrix")
-    tabs = st.tabs(["📥 1. Ingesta (Dropzone)", "🏷️ 2. Matriz de Reclasificación", "📊 3. Árbol de EEFF", "📈 4. Conciliación MPM", "📑 5. Centro de Exportación", "📚 6. Visor Doctrinal"])
-    
-    # ----------------- FASE 1: Ingesta -----------------
+    with st.sidebar:
+        st.header("Control de sesión", icon=":material/tune:")
+        tiene_datos = st.session_state.get('df_balanza') is not None
+        if tiene_datos:
+            st.caption(f"Fuente activa: {st.session_state.get('fuente_origen', 'balanza cargada')}")
+        cfg_activa = configuracion_entidad_activa()
+        if cfg_activa:
+            st.caption(f"Entidad: {cfg_activa.get('ruc', 'configuración manual')}")
+        if st.button("Resetear todos los valores", icon=":material/restart_alt:", width="stretch", disabled=not tiene_datos):
+            confirm_reset()
+        st.caption("La norma NIIF 18 aplica al Estado de Resultados. Las cuentas de Balance (1, 2, 3) se segregan a la Categoría 0.")
+
+    st.title("NIIF 18 Financial Reporting Matrix", icon=":material/account_balance:")
+    tabs = st.tabs([
+        ":material/domain: Entidad",
+        ":material/upload_file: Ingesta",
+        ":material/rule: Matriz de reclasificación",
+        ":material/account_tree: Árbol de EEFF",
+        ":material/insights: Conciliación MPM",
+        ":material/folder_zip: Centro de exportación",
+    ])
+
+    # ----------------- FASE 0: Entidad (RF-11) -----------------
     with tabs[0]:
-        st.subheader("Bandeja de Entrada de Balanzas Contables")
+        st.subheader("Identificación de la entidad", icon=":material/domain:")
+        st.caption("Busque el RUC en el directorio SCVS para obtener una sugerencia de actividad principal, o configure manualmente. Esta configuración condiciona el árbol de clasificación (RF-03).")
+        with st.form("form_entidad"):
+            ruc_input = st.text_input("RUC", max_chars=13, placeholder="1790013731001")
+            buscar = st.form_submit_button("Buscar en SCVS", icon=":material/search:", type="primary")
+        if buscar and ruc_input.strip():
+            df_directorio, fecha_snapshot = _cargar_directorio_cacheado()
+            entidad = ent_svc.buscar_entidad_por_ruc(df_directorio, ruc_input.strip(), fecha_snapshot)
+            st.session_state['entidad_encontrada'] = entidad
+            st.session_state['entidad_ruc_buscado'] = ruc_input.strip()
+
+        entidad = st.session_state.get('entidad_encontrada')
+        ruc_buscado = st.session_state.get('entidad_ruc_buscado')
+        if ruc_buscado and entidad is None:
+            st.warning(f"RUC '{ruc_buscado}' no encontrado en el snapshot local de la SCVS. Puede continuar con configuración 100% manual.", icon=":material/warning:")
+
+        if entidad:
+            with st.container(border=True):
+                st.markdown(f"**{entidad['razon_social']}**")
+                st.caption(f"RUC {entidad['ruc']} · {entidad['estado']} · snapshot SCVS del {entidad['fecha_snapshot_origen']}")
+                desc_ciiu = ent_svc.resolver_descripcion_ciiu(_cargar_ciiu_cacheado(), entidad['ciiu_nivel_1'])
+                st.write(f"CIIU nivel 1: **{entidad['ciiu_nivel_1']}** — {desc_ciiu or 'descripción no encontrada'}")
+                st.caption(f"CIIU nivel 6 (detalle): {entidad['ciiu_nivel_6']}")
+                sugerencia = ent_svc.sugerir_actividad_principal(entidad['ciiu_nivel_1'])
+                st.badge(sugerencia['advertencia'], icon=":material/warning:", color="orange")
+            fin_default = sugerencia['financiacion_es_actividad_principal']
+            inv_default = sugerencia['inversion_es_actividad_principal']
+        else:
+            fin_default, inv_default = False, False
+
+        st.markdown("##### Confirmar configuración de actividad principal")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fin_principal = st.checkbox("Financiar clientes es la actividad principal de la entidad", value=fin_default, key="chk_fin_principal")
+        with col_b:
+            inv_principal = st.checkbox("Invertir en activos específicos es la actividad principal de la entidad", value=inv_default, key="chk_inv_principal")
+
+        if st.button("Confirmar configuración", icon=":material/check_circle:", type="primary"):
+            origen = "confirmado_usuario" if entidad else "manual"
+            st.session_state['configuracion_entidad'] = {
+                "ruc": entidad['ruc'] if entidad else (ruc_buscado or None),
+                "financiacion_es_actividad_principal": fin_principal,
+                "inversion_es_actividad_principal": inv_principal,
+                "origen_actividad_principal": origen,
+            }
+            st.toast("Configuración de entidad confirmada. La clasificación masiva (RF-03) ya está habilitada.", icon=":material/check_circle:")
+
+        cfg = configuracion_entidad_activa()
+        if cfg:
+            st.badge(f"Configuración confirmada ({cfg['origen_actividad_principal']})", icon=":material/check_circle:", color="green")
+        else:
+            st.badge("Configuración pendiente de confirmar — bloquea la clasificación masiva (RF-03)", icon=":material/lock:", color="orange")
+
+    # ----------------- FASE 1: Ingesta -----------------
+    with tabs[1]:
+        st.subheader("Bandeja de entrada de balanzas contables", icon=":material/upload_file:")
+        st.caption("Arrastre su balanza de comprobación (Excel o CSV); las columnas de cuenta, descripción y saldo se detectan automáticamente.")
         v_key = st.session_state.get('uploader_version', 0)
         uploaded_file = st.file_uploader(
-            "📂 Arrastre aquí su archivo contable (Excel o CSV) o pinche para seleccionarlo:",
+            "Archivo contable",
             type=["csv", "xlsx", "xls"], key=f"uploader_{v_key}",
-            help="Soporta cualquier archivo contable (.xlsx, .xls, .csv). El procesamiento es automático al soltarlo."
+            help="Soporta .xlsx, .xls y .csv. El procesamiento es automático al soltar el archivo.",
+            label_visibility="collapsed",
         )
         if uploaded_file is not None:
             try:
@@ -169,188 +183,263 @@ def main():
                 else:
                     xl = pd.ExcelFile(uploaded_file)
                     sheet_names = xl.sheet_names
-                    default_sheet_idx = next((i for i, s in enumerate(sheet_names) if any(k in s.lower() for k in ['tb', 'balanza', 'trial', 'balance', 'saldos', 'datos', 'data', 'cuentas'])), 0)
-                    sel_sheet = st.selectbox("📑 Seleccione la pestaña del libro Excel:", sheet_names, index=default_sheet_idx) if len(sheet_names) > 1 else sheet_names[0]
-                    df_raw = read_excel_smart_header(uploaded_file, sel_sheet)
+                    default_sheet_idx = imp_svc.sugerir_hoja_balanza(sheet_names)
+                    sel_sheet = st.selectbox("Pestaña del libro Excel", sheet_names, index=default_sheet_idx) if len(sheet_names) > 1 else sheet_names[0]
+                    df_raw = imp_svc.read_excel_smart_header(uploaded_file, sel_sheet)
                     st.session_state['raw_filename'] = f"{uploaded_file.name} [{sel_sheet}]"
-                
+
                 cols_available = list(df_raw.columns)
-                inf_cta, inf_desc, inf_saldo, conf_pct = infer_columns_by_mathematical_weights(df_raw)
-                df_p = pd.DataFrame({'Cuenta': df_raw[inf_cta].astype(str), 'Descripcion': df_raw[inf_desc].astype(str), 'Saldo': clean_numeric_series(df_raw[inf_saldo])})
-                df_p = df_p[df_p['Cuenta'].str.strip() != 'nan']
-                df_p['Categoria_NIIF18'] = auto_classify_niif18_series(df_p)
-                
-                st.session_state['df_balanza'] = df_p
-                st.session_state['df_clasificado'] = df_p
-                st.session_state['fuente_origen'] = f"{st.session_state.get('raw_filename', 'Archivo')}"
-                
-                with st.expander("🛠️ Personalizar Mapeo de Columnas (Opcional)", expanded=False):
-                    st.caption(f"Inferencia Matemática: {conf_pct:.1f}% de confianza.")
+                inf_cta, inf_desc, inf_saldo, conf_pct = imp_svc.infer_columns_by_mathematical_weights(df_raw)
+
+                # Puerta de calidad (no solo advertencia): un archivo puede traer hojas de
+                # referencia (respuesta esperada, EEFF ya resumido) con otra estructura —
+                # `infer_columns_by_mathematical_weights` nunca valida esa premisa, solo
+                # elige la mejor opción entre columnas malas. Ver TASKS.md
+                # ¤validar_calidad_hoja_balanza y PRD.md §10 para el caso real que lo motivó.
+                es_balanza_valida, motivos_calidad = imp_svc.evaluar_calidad_balanza(df_raw, inf_cta, inf_saldo)
+                if not es_balanza_valida:
+                    st.session_state['df_balanza'] = None
+                    st.session_state['df_clasificado'] = None
+                    st.error(" ".join(motivos_calidad), icon=":material/error:")
+                else:
+                    df_p = imp_svc.construir_balanza_estandar(df_raw, inf_cta, inf_desc, inf_saldo)
+                    df_p['Categoria_NIIF18'] = clasificar_con_configuracion(df_p)
+                    st.session_state['df_balanza'] = df_p
+                    st.session_state['df_clasificado'] = df_p
+                    st.session_state['fuente_origen'] = f"{st.session_state.get('raw_filename', 'Archivo')}"
+
+                with st.expander("Personalizar mapeo de columnas (opcional)", icon=":material/tune:", expanded=not es_balanza_valida):
+                    st.caption(f"Inferencia matemática: {conf_pct:.1f}% de confianza.")
+                    if not es_balanza_valida:
+                        st.caption("La detección automática de columnas falló (ver el error arriba). Ajuste el mapeo manualmente si esta pestaña sí es una balanza válida.")
                     col_m1, col_m2, col_m3 = st.columns(3)
-                    with col_m1: s_cta = st.selectbox("Código/Cuenta:", cols_available, index=cols_available.index(inf_cta))
-                    with col_m2: s_desc = st.selectbox("Descripción:", cols_available, index=cols_available.index(inf_desc))
-                    with col_m3: s_saldo = st.selectbox("Saldo/Importe:", cols_available, index=cols_available.index(inf_saldo))
+                    with col_m1: s_cta = st.selectbox("Código / cuenta", cols_available, index=cols_available.index(inf_cta))
+                    with col_m2: s_desc = st.selectbox("Descripción", cols_available, index=cols_available.index(inf_desc))
+                    with col_m3: s_saldo = st.selectbox("Saldo / importe", cols_available, index=cols_available.index(inf_saldo))
                     if s_cta != inf_cta or s_desc != inf_desc or s_saldo != inf_saldo:
-                        df_m = pd.DataFrame({'Cuenta': df_raw[s_cta].astype(str), 'Descripcion': df_raw[s_desc].astype(str), 'Saldo': clean_numeric_series(df_raw[s_saldo])})
-                        df_m['Categoria_NIIF18'] = auto_classify_niif18_series(df_m)
-                        st.session_state['df_balanza'] = df_m
-                        st.session_state['df_clasificado'] = df_m
+                        ok_manual, motivos_manual = imp_svc.evaluar_calidad_balanza(df_raw, s_cta, s_saldo)
+                        if not ok_manual:
+                            st.error(" ".join(motivos_manual), icon=":material/error:")
+                        else:
+                            df_m = imp_svc.construir_balanza_estandar(df_raw, s_cta, s_desc, s_saldo)
+                            df_m['Categoria_NIIF18'] = clasificar_con_configuracion(df_m)
+                            st.session_state['df_balanza'] = df_m
+                            st.session_state['df_clasificado'] = df_m
+                            st.session_state['fuente_origen'] = f"{st.session_state.get('raw_filename', 'Archivo')}"
             except Exception as e:
-                st.error(f"Error al leer el archivo: {e}")
-                
+                st.error(f"Error al leer el archivo: {e}", icon=":material/error:")
+
         if 'df_balanza' in st.session_state and st.session_state['df_balanza'] is not None:
-            st.divider()
-            c_inf1, c_inf2, c_inf3 = st.columns(3)
-            c_inf1.metric("Archivo Procesado", st.session_state.get('fuente_origen', 'Balanza'))
-            c_inf2.metric("Total Registros Contables", f"{len(st.session_state['df_balanza']):,} cuentas")
             st_val = float(st.session_state['df_balanza']['Saldo'].sum())
-            c_inf3.metric("Balance de Comprobación", f"$ {st_val:,.2f}", delta="Cuadre Perfecto" if abs(st_val) < 0.01 else "Neto en Libros")
-            st.markdown("#### Previsualización Estandarizada")
-            st.dataframe(st.session_state['df_balanza'][['Cuenta', 'Descripcion', 'Saldo']], width="stretch", height=300)
+            cuadrado = val_svc.balanza_cuadrada(st_val)
+            with st.container(horizontal=True):
+                st.metric("Archivo procesado", st.session_state.get('fuente_origen', 'Balanza'), border=True)
+                st.metric("Registros contables", f"{len(st.session_state['df_balanza']):,}", border=True)
+                st.metric("Balance de comprobación", f"$ {st_val:,.2f}", border=True)
+            st.badge("Cuadre perfecto" if cuadrado else "Neto en libros distinto de cero", icon=":material/check_circle:" if cuadrado else ":material/warning:", color="green" if cuadrado else "orange")
+            if not configuracion_entidad_activa():
+                st.caption("Clasificación provisional (sin configuración de entidad confirmada, ver pestaña Entidad) — usa financiación/inversión = actividad no principal por defecto.")
+            st.markdown("#### Previsualización estandarizada")
+            st.dataframe(
+                st.session_state['df_balanza'][['Cuenta', 'Descripcion', 'Saldo']],
+                column_config=cuentas_column_config(),
+                hide_index=True, width="stretch", height=300,
+            )
+        else:
+            with st.container(border=True, horizontal_alignment="center"):
+                st.markdown(":material/upload_file:")
+                st.write("Aún no hay una balanza cargada.")
+                st.caption("Cargue un archivo arriba para empezar el flujo: entidad → ingesta → matriz de reclasificación → estados financieros.")
 
     # ----------------- FASE 2: Matriz -----------------
-    with tabs[1]:
-        st.subheader("Matriz de Asignación de Categorías NIIF 18")
+    with tabs[2]:
+        st.subheader("Matriz de asignación de categorías NIIF 18", icon=":material/rule:")
         if 'df_balanza' in st.session_state and st.session_state['df_balanza'] is not None:
             df_reclass = st.session_state.get('df_clasificado', st.session_state['df_balanza']).copy()
             if 'Categoria_NIIF18' not in df_reclass.columns:
-                df_reclass['Categoria_NIIF18'] = auto_classify_niif18_series(df_reclass)
+                df_reclass['Categoria_NIIF18'] = clasificar_con_configuracion(df_reclass)
+            pendientes = val_svc.contar_cuentas_pendientes(df_reclass, cat_svc.CATEGORIAS_NIIF18)
+            with st.container(horizontal=True):
+                if pendientes == 0:
+                    st.badge("Todas las cuentas están clasificadas", icon=":material/check_circle:", color="green")
+                else:
+                    st.badge(f"{pendientes} cuentas sin categoría válida", icon=":material/warning:", color="orange")
+
+            cfg_ok = configuracion_entidad_activa() is not None
             c_m1, c_m2 = st.columns([3, 1])
             with c_m2:
-                if st.button("✨ Re-aplicar Auto-Clasificación", width="stretch"):
-                    df_reclass['Categoria_NIIF18'] = auto_classify_niif18_series(df_reclass)
+                if not cfg_ok:
+                    st.caption("Confirme la configuración de entidad (pestaña Entidad) para habilitar RF-03.")
+                if st.button("Re-aplicar auto-clasificación", icon=":material/auto_awesome:", width="stretch", disabled=not cfg_ok):
+                    df_reclass['Categoria_NIIF18'] = clasificar_con_configuracion(df_reclass)
                     st.session_state['df_clasificado'] = df_reclass
                     st.rerun()
+
             v_key = st.session_state.get('uploader_version', 0)
+            editor_key = f"editor_matriz_{v_key}"
             edited_df = st.data_editor(
                 df_reclass,
-                column_config={"Categoria_NIIF18": st.column_config.SelectboxColumn("Clasificación NIIF 18", options=CATEGORIAS_NIIF18, required=True)},
-                width="stretch", height=420, key=f"editor_matriz_{v_key}"
+                column_config=cuentas_column_config({
+                    "Categoria_NIIF18": st.column_config.SelectboxColumn("Clasificación NIIF 18", options=cat_svc.CATEGORIAS_NIIF18, required=True),
+                }),
+                hide_index=True, width="stretch", height=420, key=editor_key,
             )
+
+            # RF-10: registrar en la bitácora append-only cada cambio de clasificación
+            # detectado por el data_editor (sala_auditoria nunca edita/borra, solo agrega).
+            edited_rows = st.session_state.get(editor_key, {}).get("edited_rows", {})
+            for row_idx, cambios in edited_rows.items():
+                if "Categoria_NIIF18" in cambios:
+                    cuenta_codigo = df_reclass.iloc[row_idx]['Cuenta']
+                    categoria_anterior = df_reclass.iloc[row_idx]['Categoria_NIIF18']
+                    aud_svc.registrar_cambio(
+                        st.session_state['bitacora_auditoria'],
+                        usuario="usuario_sesion", cuenta_codigo=cuenta_codigo,
+                        categoria_anterior=categoria_anterior, categoria_nueva=cambios["Categoria_NIIF18"],
+                        justificacion="Edición manual en Matriz de reclasificación",
+                    )
             st.session_state['df_clasificado'] = edited_df
+
+            with st.expander(f"Bitácora de auditoría ({len(st.session_state['bitacora_auditoria'])} cambios)", icon=":material/history:", expanded=False):
+                bitacora = aud_svc.obtener_bitacora(st.session_state['bitacora_auditoria'])
+                if bitacora:
+                    st.dataframe(pd.DataFrame(bitacora), hide_index=True, width="stretch")
+                else:
+                    st.caption("Sin cambios manuales registrados todavía.")
         else:
-            st.info("ℹ️ No hay datos para clasificar. Realice la carga en la pestaña 1 (Ingesta).")
+            with st.container(border=True, horizontal_alignment="center"):
+                st.markdown(":material/rule:")
+                st.write("No hay datos para clasificar todavía.")
+                st.caption("Cargue una balanza en la pestaña Ingesta para generar la matriz de reclasificación.")
 
     # ----------------- FASE 3: Árbol EEFF -----------------
-    with tabs[2]:
-        st.subheader("Árbol de Rendimiento Estructurado")
+    with tabs[3]:
+        st.subheader("Árbol de rendimiento estructurado", icon=":material/account_tree:")
         if 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None:
-            df_c = st.session_state['df_clasificado'].copy()
-            df_c['PL_Neto'] = df_c.apply(calculate_pl_contribution, axis=1)
-            v_op = float(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')]['PL_Neto'].sum())
-            v_inv = float(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')]['PL_Neto'].sum())
-            v_fin = float(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')]['PL_Neto'].sum())
-            v_imp = float(df_c[df_c['Categoria_NIIF18'].str.startswith('4.')]['PL_Neto'].sum())
-            v_disc = float(df_c[df_c['Categoria_NIIF18'].str.startswith('5.')]['PL_Neto'].sum())
-            sub_1, sub_2, sub_3 = v_op, v_op + v_inv, v_op + v_inv + v_fin + v_imp + v_disc
-            
-            st.markdown("### Subtotales Mandatorios (Cálculo en Vivo)")
-            c1, c2, c3 = st.columns(3)
-            c1.metric("1. Resultado Operativo", f"$ {sub_1:,.2f}")
-            c2.metric("2. Antes de Fin. e Imptos", f"$ {sub_2:,.2f}")
-            c3.metric("3. Resultado del Periodo", f"$ {sub_3:,.2f}")
-            st.divider()
-            st.markdown("#### Análisis Gráfico de Subtotales")
-            chart_df = pd.DataFrame({"Subtotal": ["1. Operativo", "2. Pre-Fin/Imp", "3. Periodo Neto"], "Monto ($)": [sub_1, sub_2, sub_3]}).set_index("Subtotal")
-            st.bar_chart(chart_df, width="stretch")
-            st.divider()
-            with st.expander("Ver desglose operativo (Categoría 1)", expanded=True):
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], width="stretch")
-            with st.expander("Ver desglose de inversión (Categoría 2)", expanded=False):
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], width="stretch")
-            with st.expander("Ver desglose de financiación (Categoría 3)", expanded=False):
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], width="stretch")
-            with st.expander("Ver cuentas excluidas de Balance General (Categoría 0)", expanded=False):
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('0.')][['Cuenta', 'Descripcion', 'Saldo']], width="stretch")
+            df_c, subtotales = fs_svc.calcular_subtotales(st.session_state['df_clasificado'])
+            sub_1 = subtotales['sub_1_resultado_operativo']
+            sub_2 = subtotales['sub_2_antes_fin_imp']
+            sub_3 = subtotales['sub_3_resultado_periodo']
+
+            st.markdown("##### Subtotales mandatorios (cálculo en vivo)")
+            with st.container(horizontal=True):
+                st.metric("1. Resultado operativo", f"$ {sub_1:,.2f}", border=True)
+                st.metric("2. Antes de fin. e imptos.", f"$ {sub_2:,.2f}", border=True)
+                st.metric("3. Resultado del periodo", f"$ {sub_3:,.2f}", border=True)
+
+            with st.container(border=True):
+                st.markdown("**Análisis gráfico de subtotales**")
+                chart_df = pd.DataFrame({"Subtotal": ["1. Operativo", "2. Pre-fin/imp", "3. Periodo neto"], "Monto ($)": [sub_1, sub_2, sub_3]}).set_index("Subtotal")
+                st.bar_chart(chart_df, width="stretch")
+
+            pl_col = st.column_config.NumberColumn("Efecto en resultados", format="$ %.2f")
+            with st.expander("Ver desglose operativo (Categoría 1)", icon=":material/work:", expanded=True):
+                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+            with st.expander("Ver desglose de inversión (Categoría 2)", icon=":material/trending_up:", expanded=False):
+                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+            with st.expander("Ver desglose de financiación (Categoría 3)", icon=":material/account_balance:", expanded=False):
+                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+            with st.expander("Ver cuentas excluidas de Balance General (Categoría 0)", icon=":material/block:", expanded=False):
+                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('0.')][['Cuenta', 'Descripcion', 'Saldo']], column_config=cuentas_column_config(), hide_index=True, width="stretch")
         else:
-            st.info("ℹ️ No hay estados financieros generados. Cargue y clasifique su balance en las fases 1 y 2.")
+            with st.container(border=True, horizontal_alignment="center"):
+                st.markdown(":material/account_tree:")
+                st.write("Aún no hay estados financieros generados.")
+                st.caption("Cargue y clasifique su balance en las pestañas Ingesta y Matriz de reclasificación.")
 
     # ----------------- FASE 4: MPMs -----------------
-    with tabs[3]:
-        st.subheader("Medidas de Rendimiento Definidas por la Gerencia (MPM)")
+    with tabs[4]:
+        st.subheader("Medidas de rendimiento definidas por la gerencia (MPM)", icon=":material/insights:")
         c_form, c_table = st.columns([1, 1.5])
         with c_form:
-            plantilla = st.selectbox("Seleccionar Plantilla MPM:", ["EBITDA Ajustado", "Resultado Operativo Normalizado", "Personalizado"])
-            p_nombres = {"EBITDA Ajustado": "EBITDA Ajustado", "Resultado Operativo Normalizado": "Resultado Operativo Normalizado", "Personalizado": ""}
-            p_ajustes = {"EBITDA Ajustado": 50000.0, "Resultado Operativo Normalizado": 35000.0, "Personalizado": 0.0}
-            p_justif = {
-                "EBITDA Ajustado": "Exclusión de costos no recurrentes de reestructuración para reflejar el desempeño operativo recurrente.",
-                "Resultado Operativo Normalizado": "Ajuste por contingencias legales atípicas de ejercicios anteriores.",
-                "Personalizado": ""
-            }
-            with st.form("mpm_form"):
-                st.markdown("**Registrar Nueva MPM**")
-                mpm_name = st.text_input("Denominación MPM", value=p_nombres[plantilla], placeholder="ej. EBITDA Ajustado")
-                subtotal_base = st.selectbox("Subtotal NIIF 18 de Anclaje", ["1. Resultado Operativo", "3. Resultado del Periodo"])
-                ajuste = st.number_input("Monto del Ajuste (+/-)", value=p_ajustes[plantilla])
-                rationale = st.text_area("Justificación / Nota Explicativa", value=p_justif[plantilla], placeholder="Indique la justificación para los inversionistas...")
-                if st.form_submit_button("Validar e Incluir"):
-                    if mpm_name.strip():
-                        val_base = 0.0
-                        if 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None:
-                            df_calc = st.session_state['df_clasificado'].copy()
-                            df_calc['PL_Neto'] = df_calc.apply(calculate_pl_contribution, axis=1)
-                            val_base = float(df_calc[df_calc['Categoria_NIIF18'].str.startswith('1.')]['PL_Neto'].sum()) if "1. Resultado Operativo" in subtotal_base else float(df_calc['PL_Neto'].sum())
-                        if 'mpm_records' not in st.session_state:
-                            st.session_state['mpm_records'] = []
-                        st.session_state['mpm_records'].append({
-                            "Métrica": mpm_name, "Anclaje NIIF": subtotal_base, "Base NIIF ($)": f"{val_base:,.2f}",
-                            "Ajuste ($)": f"{ajuste:,.2f}", "Efecto Fiscal ($)": f"{-(ajuste * 0.25):,.2f}",
-                            "Total MPM ($)": f"{(val_base + ajuste):,.2f}", "Justificación": rationale
-                        })
-                        st.success(f"✅ Medida '{mpm_name}' validada y registrada.")
-                        st.rerun()
-                    else:
-                        st.error("Ingrese una denominación para la MPM.")
+            with st.container(border=True):
+                nombres_plantilla = list(mpm_svc.PLANTILLAS_MPM.keys())
+                plantilla = st.segmented_control("Plantilla MPM", nombres_plantilla, default=nombres_plantilla[0])
+                plantilla = plantilla or "Personalizado"
+                datos_plantilla = mpm_svc.PLANTILLAS_MPM[plantilla]
+                with st.form("mpm_form"):
+                    st.markdown("**Registrar nueva MPM**")
+                    mpm_name = st.text_input("Denominación MPM", value=plantilla if plantilla != "Personalizado" else "", placeholder="ej. EBITDA Ajustado")
+                    subtotal_base = st.segmented_control("Subtotal NIIF 18 de anclaje", [mpm_svc.SUBTOTAL_RESULTADO_OPERATIVO, mpm_svc.SUBTOTAL_RESULTADO_PERIODO], default=mpm_svc.SUBTOTAL_RESULTADO_OPERATIVO)
+                    ajuste = st.number_input("Monto del ajuste (+/-)", value=datos_plantilla["ajuste"])
+                    rationale = st.text_area("Justificación / nota explicativa", value=datos_plantilla["justificacion"], placeholder="Indique la justificación para los inversionistas...")
+                    if st.form_submit_button("Validar e incluir", type="primary", icon=":material/check:", width="stretch"):
+                        if mpm_name.strip():
+                            df_base = st.session_state.get('df_clasificado')
+                            val_base = mpm_svc.calcular_base_niif(df_base, subtotal_base)
+                            if 'mpm_records' not in st.session_state:
+                                st.session_state['mpm_records'] = []
+                            st.session_state['mpm_records'].append(
+                                mpm_svc.construir_registro_mpm(mpm_name, subtotal_base, val_base, ajuste, rationale)
+                            )
+                            st.toast(f"Medida '{mpm_name}' validada y registrada.", icon=":material/check_circle:")
+                            st.rerun()
+                        else:
+                            st.error("Ingrese una denominación para la MPM.", icon=":material/error:")
         with c_table:
-            st.markdown("**Tabla de Conciliación Auditada (Nota NIIF 18)**")
-            if 'mpm_records' in st.session_state and st.session_state['mpm_records']:
-                st.dataframe(pd.DataFrame(st.session_state['mpm_records']), width="stretch")
-                if st.button("🗑️ Limpiar MPMs"):
-                    st.session_state['mpm_records'] = []
-                    st.rerun()
-            else:
-                st.info("ℹ️ No hay MPMs registradas. Seleccione una plantilla a la izquierda y presione 'Validar e Incluir'.")
+            with st.container(border=True):
+                st.markdown("**Tabla de conciliación auditada (nota NIIF 18)**")
+                if 'mpm_records' in st.session_state and st.session_state['mpm_records']:
+                    money_cfg = lambda label: st.column_config.NumberColumn(label, format="$ %.2f")
+                    st.dataframe(
+                        pd.DataFrame(st.session_state['mpm_records']),
+                        column_config={
+                            "Base NIIF ($)": money_cfg("Base NIIF ($)"),
+                            "Ajuste ($)": money_cfg("Ajuste ($)"),
+                            "Efecto fiscal ($)": money_cfg("Efecto fiscal ($)"),
+                            "Total MPM ($)": money_cfg("Total MPM ($)"),
+                        },
+                        hide_index=True, width="stretch",
+                    )
+                    if st.button("Limpiar MPMs", icon=":material/delete:"):
+                        st.session_state['mpm_records'] = []
+                        st.rerun()
+                else:
+                    st.markdown(":material/insights:")
+                    st.write("No hay MPMs registradas todavía.")
+                    st.caption("Seleccione una plantilla a la izquierda y presione 'Validar e incluir'.")
 
     # ----------------- FASE 5: Exportación -----------------
-    with tabs[4]:
-        st.subheader("Centro de Exportación Regulatoria")
-        col_dl1, col_dl2 = st.columns(2)
-        with col_dl1:
-            if 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None:
-                st.download_button("📥 Descargar Mapeo y Trazabilidad (CSV)", data=st.session_state['df_clasificado'].to_csv(index=False).encode('utf-8'), file_name="mapeo_niif18.csv", mime="text/csv", width="stretch")
-            else:
-                st.button("📥 Descargar Mapeo y Trazabilidad (CSV)", disabled=True, width="stretch")
-        with col_dl2:
-            if 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None:
-                excel_data = rep_svc.generar_excel_estado_resultados(st.session_state['df_clasificado'])
-                st.download_button(
-                    label="📥 Descargar Estado de Resultados (Excel)", 
-                    data=excel_data, 
-                    file_name="estado_resultados_niif18.xlsx", 
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-                    width="stretch"
-                )
-            else:
-                st.button("📥 Descargar Estado de Resultados (Excel)", disabled=True, width="stretch")
-
-    # ----------------- FASE 6: Visor Doctrinal Saneado (INV-019) -----------------
     with tabs[5]:
-        st.subheader("Consulta del Marco Teórico IASB")
-        doctrinas_dir = "docs/biblioteca_doctrinal"
-        if os.path.exists(doctrinas_dir):
-            archivos = sorted(os.listdir(doctrinas_dir))
-            sel_file = st.selectbox(
-                "Seleccione el volumen doctrinal a consultar:", 
-                archivos, 
-                format_func=lambda x: TITULOS_DOCTRINALES.get(x, x.replace(".md", "").replace("_", " ").title())
-            )
-            if sel_file:
-                with open(os.path.join(doctrinas_dir, sel_file), 'r', encoding='utf-8') as f:
-                    content_clean = re.sub(r'\[[¤¦][^\]]*\]', '', f.read()).strip()
-                    st.markdown(f"---\n{content_clean}")
-        else:
-            st.error("No se encontró la biblioteca doctrinal.")
+        st.subheader("Centro de exportación regulatoria", icon=":material/folder_zip:")
+        hay_datos = 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None
+        if not hay_datos:
+            st.caption("Los archivos de exportación se habilitan luego de cargar y clasificar una balanza.")
+
+        # Puerta de reconciliación obligatoria (TASKS.md ¤puerta_reconciliacion_beta,
+        # inspirada en IFRS-Converter: "no reconciliation, no finalized result"). Bloquea
+        # el Estado de Resultados regulatorio — el CSV de mapeo/trazabilidad sigue
+        # disponible siempre porque es precisamente la herramienta para diagnosticar por
+        # qué no reconcilia, no el entregable final.
+        puede_exportar_eeff, motivos_bloqueo = (False, [])
+        if hay_datos:
+            puede_exportar_eeff, motivos_bloqueo = val_svc.puede_exportar(st.session_state['df_clasificado'], cat_svc.CATEGORIAS_NIIF18)
+            if not puede_exportar_eeff:
+                st.warning("El Estado de Resultados regulatorio está bloqueado hasta reconciliar: " + " ".join(motivos_bloqueo), icon=":material/lock:")
+
+        with st.container(horizontal=True):
+            with st.container(border=True, width="stretch"):
+                st.markdown("**Mapeo y trazabilidad**")
+                st.caption("CSV con cada cuenta y su categoría NIIF 18 asignada. Disponible siempre, incluso sin reconciliar — es la herramienta para diagnosticar pendientes.")
+                if hay_datos:
+                    st.download_button("Descargar CSV", icon=":material/download:", data=st.session_state['df_clasificado'].to_csv(index=False).encode('utf-8'), file_name="mapeo_niif18.csv", mime="text/csv", type="primary", width="stretch")
+                else:
+                    st.button("Descargar CSV", icon=":material/download:", disabled=True, width="stretch")
+            with st.container(border=True, width="stretch"):
+                st.markdown("**Estado de Resultados**")
+                st.caption("Excel con las 5 categorías y los 3 subtotales mandatorios. Requiere balanza cuadrada y sin cuentas pendientes.")
+                if hay_datos and puede_exportar_eeff:
+                    excel_data = rep_svc.generar_excel_estado_resultados(st.session_state['df_clasificado'])
+                    st.download_button(
+                        "Descargar Excel", icon=":material/download:",
+                        data=excel_data,
+                        file_name="estado_resultados_niif18.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary", width="stretch",
+                    )
+                else:
+                    st.button("Descargar Excel", icon=":material/lock:", disabled=True, width="stretch")
+
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 import io
 import pandas as pd
 
+# ¤sala_reportes
 def generar_excel_estado_resultados(df: pd.DataFrame) -> bytes:
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
