@@ -23,3 +23,6 @@ AGENTS.md
 run.bat
 setup.bat
 test.bat
+
+# Config local de Claude Code (hooks personales)
+.claude/settings.local.json

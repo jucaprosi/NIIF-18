@@ -20,12 +20,17 @@ from sala_catalogo import _service as cat_svc
 
 __all__ = ["clasificar_partida", "clasificar_dataframe"]
 
+# Fuente única de los nombres de categoría: `sala_catalogo` (compuerta oficial del
+# catálogo NIIF 18, PRD.md RF-02). Antes esta sala redefinía los mismos literales por su
+# cuenta -- riesgo de que un cambio de nombre (p. ej. el renombrado corto de 2026-09-23)
+# se aplicara en un archivo y no en el otro. Ahora se derivan por posición de
+# `cat_svc.CATEGORIAS_NIIF18`, que es la única lista que se edita para renombrar.
 CATEGORIA_BALANCE_GENERAL = cat_svc.CATEGORIA_BALANCE_GENERAL
-CATEGORIA_OPERACION = "1. Operación (Ingresos / Gastos Operativos)"
-CATEGORIA_INVERSION = "2. Inversión (Ingresos / Gastos por Inversiones)"
-CATEGORIA_FINANCIACION = "3. Financiación (Costos / Pasivos Financieros)"
-CATEGORIA_IMPUESTOS = "4. Impuestos a las Ganancias"
-CATEGORIA_DISCONTINUADAS = "5. Operaciones Discontinuadas"
+CATEGORIA_OPERACION = cat_svc.CATEGORIAS_NIIF18[1]
+CATEGORIA_INVERSION = cat_svc.CATEGORIAS_NIIF18[2]
+CATEGORIA_FINANCIACION = cat_svc.CATEGORIAS_NIIF18[3]
+CATEGORIA_IMPUESTOS = cat_svc.CATEGORIAS_NIIF18[4]
+CATEGORIA_DISCONTINUADAS = cat_svc.CATEGORIAS_NIIF18[5]
 
 _PALABRAS_BALANCE = (
     'activo', 'pasivo', 'patrimonio', 'capital', 'bancos', 'caja', 'proveedor',

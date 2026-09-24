@@ -3,28 +3,67 @@ Compuerta _service.py para sala_entidad.
 [¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-11, sala antes propuesta en TASKS.md ¤sala_entidad_nueva):
-identificación de la entidad por RUC contra el snapshot local del Directorio de
-Compañías de la SCVS, resolución de su código CIIU, y sugerencia (editable, nunca
-aplicada sin confirmación del usuario — ver PRD.md §3 nota de implementación y aporte
-A-02 en APORTES_INEDITOS.md) de si financiación o inversión es su actividad principal.
+identificación de la entidad por RUC, resolución de su código CIIU, y sugerencia
+(editable, nunca aplicada sin confirmación del usuario — ver PRD.md §3 nota de
+implementación y aporte A-02 en APORTES_INEDITOS.md) de si financiación o inversión es
+su actividad principal.
 
-Fuente de datos: modo snapshot local únicamente (PRD.md RF-11, MVP). La consulta en
-vivo es una fase posterior (PRD.md §7, Fase 4) condicionada a validar un mecanismo de
-acceso oficial — no implementada aquí.
+Fuente de datos — consulta en vivo por RUC vía SRI (PRD.md RF-11, Fase 5, 2026-09-24):
+se verificó que `https://srienlinea.sri.gob.ec/sri-catastro-sujeto-servicio-internet/
+rest/ConsolidadoContribuyente/obtenerPorNumerosRuc` es un endpoint público, sin sesión
+ni autenticación, que responde al instante con razón social/estado/actividad económica
+por RUC — a diferencia del directorio de la SCVS (verificado antes, Fase 4), el SRI SÍ
+permite consulta puntual por RUC sin descargar ningún archivo masivo. Limitación real:
+el SRI no devuelve código CIIU, solo el texto libre de la actividad económica —
+`inferir_ciiu_por_texto` compara ese texto contra el catálogo CIIU local
+(`cargar_catalogo_ciiu`, estático, no requiere descarga en vivo — ver nota abajo) para
+sugerir la sección CIIU más probable, con el mismo patrón de "sugerencia DRAFT sin
+validar" que ya rige `sugerir_actividad_principal`.
+
+El catálogo CIIU (`ciiu.xlsx`) es una tabla de clasificación estándar (3,052 filas, del
+INEC/SCVS) que cambia cada varios años, no datos de entidades — se sigue empaquetando
+como archivo local con la app (no necesita descarga en vivo ni base de datos, a
+diferencia del directorio de 227k compañías).
+
+Las funciones de descarga masiva del directorio SCVS (`actualizar_snapshot_directorio`,
+`cargar_directorio`, `buscar_entidad_por_ruc`) se conservan (probadas, funcionales) mas
+ya no son el flujo por defecto de la UI (`app.py`) — quedan disponibles si se necesita
+resolver un código CIIU exacto (no inferido) contra la fuente oficial completa. Ver
+`TASKS.md` `¤consulta_sri_ruc_en_vivo`.
 """
 import os
+import re
+import unicodedata
 import pandas as pd
+import requests
 
 __all__ = [
+    "URL_DIRECTORIO_SCVS",
+    "URL_SRI_CONSULTA_RUC",
+    "actualizar_snapshot_directorio",
     "fecha_snapshot_directorio",
     "cargar_directorio",
     "cargar_catalogo_ciiu",
     "buscar_entidad_por_ruc",
+    "buscar_entidad_ruc_sri",
+    "inferir_ciiu_por_texto",
     "resolver_descripcion_ciiu",
     "sugerir_actividad_principal",
 ]
 
+URL_DIRECTORIO_SCVS = "https://mercadodevalores.supercias.gob.ec/reportes/excel/directorio_companias.xlsx"
+URL_SRI_CONSULTA_RUC = "https://srienlinea.sri.gob.ec/sri-catastro-sujeto-servicio-internet/rest/ConsolidadoContribuyente/obtenerPorNumerosRuc"
+
 _COLUMNAS_DIRECTORIO = ["RUC", "NOMBRE", "SITUACIÓN LEGAL", "CIIU NIVEL 1", "CIIU NIVEL 6"]
+
+# Palabras sin valor discriminante para el matching de texto de `inferir_ciiu_por_texto`
+# — conectores gramaticales y la palabra "actividad(es)", que aparece en casi toda
+# descripción CIIU y en casi todo texto de actividad del SRI, por lo que no aporta señal.
+_PALABRAS_VACIAS_CIIU = {
+    "DE", "LA", "EL", "Y", "EN", "CON", "PARA", "POR", "A", "LOS", "LAS", "SIN", "DEL",
+    "AL", "U", "O", "SU", "SUS", "QUE", "SE", "UN", "UNA", "COMO", "NO", "OTROS",
+    "OTRAS", "OTRO", "OTRA", "NCP", "ACTIVIDADES", "ACTIVIDAD",
+}
 
 # DRAFT — mapeo CIIU (sección, nivel 1) -> sugerencia de actividad principal.
 # NO VALIDADO CON CRITERIO CONTABLE (PRD.md §8, riesgo de mapeo CIIU->actividad
@@ -50,6 +89,33 @@ def _ruta_cache_parquet(directorio_path):
 
 
 # ¤sala_entidad ¤scvs
+def actualizar_snapshot_directorio(directorio_path, url=URL_DIRECTORIO_SCVS, timeout_segundos=30):
+    """Intenta refrescar el snapshot local del directorio SCVS descargando el archivo
+    público más reciente. Devuelve (bool actualizado, str motivo).
+
+    Falla de forma segura (no rompe el flujo, no borra el snapshot existente) ante
+    cualquier problema de red: timeout, DNS, HTTP != 200, sitio caído. Escribe primero
+    a un archivo temporal y solo reemplaza el snapshot si la descarga completa fue
+    exitosa — evita dejar un `.xlsx` corrupto a medio escribir si la conexión se corta
+    a mitad de la descarga (~35 MB).
+    """
+    tmp_path = directorio_path + ".tmp_descarga"
+    try:
+        respuesta = requests.get(url, timeout=timeout_segundos, headers={"User-Agent": "Mozilla/5.0"})
+        respuesta.raise_for_status()
+        with open(tmp_path, "wb") as f:
+            f.write(respuesta.content)
+        os.replace(tmp_path, directorio_path)
+        return True, "Directorio SCVS actualizado en vivo desde la fuente pública."
+    except Exception as exc:
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        return False, f"No se pudo actualizar en vivo ({exc.__class__.__name__}) — usando snapshot local existente."
+
+
 def cargar_directorio(directorio_path):
     """Carga el snapshot completo del directorio SCVS (227k+ filas) — operación cara.
 
@@ -115,6 +181,106 @@ def buscar_entidad_por_ruc(df_directorio, ruc, fecha_snapshot_origen="desconocid
         "ciiu_nivel_6": str(r["CIIU NIVEL 6"]).strip(),
         "fuente": "snapshot_local",
         "fecha_snapshot_origen": fecha_snapshot_origen,
+    }
+
+
+# ¤sala_entidad ¤sri
+def buscar_entidad_ruc_sri(ruc, timeout_segundos=15):
+    """Consulta en vivo al SRI por un RUC exacto — sin descargar ningún archivo masivo.
+
+    Verificado 2026-09-24 contra 3 RUCs reales (persona jurídica agrícola, banco,
+    operadora de telecomunicaciones): endpoint público, sin sesión ni autenticación,
+    responde en menos de 1 segundo. Devuelve un dict con ruc/razon_social/estado/
+    actividad_economica_texto/tipo_contribuyente/obligado_llevar_contabilidad/fuente,
+    o None si el RUC no existe, el servicio no responde, o hay un error de red —
+    mismo contrato que `buscar_entidad_por_ruc` (RF-11: el sistema debe permitir
+    continuar con configuración 100% manual si no hay match).
+    """
+    ruc = str(ruc).strip()
+    if not ruc:
+        return None
+    try:
+        respuesta = requests.get(
+            URL_SRI_CONSULTA_RUC, params={"ruc": ruc}, timeout=timeout_segundos,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        respuesta.raise_for_status()
+        datos = respuesta.json()
+    except Exception:
+        return None
+    if not datos:
+        return None
+    r = datos[0]
+    return {
+        "ruc": ruc,
+        "razon_social": str(r.get("razonSocial") or "").strip(),
+        "estado": str(r.get("estadoContribuyenteRuc") or "").strip(),
+        "actividad_economica_texto": str(r.get("actividadEconomicaPrincipal") or "").strip(),
+        "tipo_contribuyente": str(r.get("tipoContribuyente") or "").strip(),
+        "obligado_llevar_contabilidad": str(r.get("obligadoLlevarContabilidad") or "").strip(),
+        "fuente": "consulta_en_vivo_sri",
+    }
+
+
+def _tokens_significativos(texto):
+    texto = str(texto).upper()
+    texto = "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+    return {t for t in re.findall(r"[A-Z]{3,}", texto) if t not in _PALABRAS_VACIAS_CIIU}
+
+
+# ¤ciiu
+def inferir_ciiu_por_texto(texto_actividad, df_catalogo, nivel_minimo=2):
+    """Sugiere el código/sección CIIU más probable comparando `texto_actividad` (texto
+    libre, p. ej. `actividad_economica_texto` del SRI) contra las descripciones del
+    catálogo CIIU local ya cargado en memoria (`cargar_catalogo_ciiu`).
+
+    Heurística de solapamiento de palabras (Jaccard sobre tokens significativos, no
+    TF-IDF ni embeddings — deliberadamente simple y auditable, mismo espíritu que el
+    árbol de `sala_clasificacion`): se compara contra descripciones de nivel >=
+    `nivel_minimo` (se excluye nivel 1 por defecto — sus descripciones son demasiado
+    generales y pierden frente a texto específico del SRI, verificado empíricamente:
+    "Actividades de intermediación monetaria..." solo matchea bien contra la
+    descripción nivel-3 "INTERMEDIACIÓN MONETARIA", no contra la nivel-1 "ACTIVIDADES
+    FINANCIERAS Y DE SEGUROS"). La sección CIIU nivel 1 se deriva de la primera letra
+    del código de la fila con mejor puntaje.
+
+    Devuelve un dict (codigo_ciiu, descripcion_ciiu, ciiu_nivel_1, score_confianza,
+    advertencia) o None si no hay catálogo cargado, el texto está vacío, o ninguna fila
+    comparte al menos una palabra significativa con el texto de entrada.
+
+    **Es una sugerencia DRAFT, no una clasificación oficial** — igual criterio que
+    `sugerir_actividad_principal`: requiere confirmación del usuario antes de habilitar
+    RF-03 (ver PRD.md §3, RF-11).
+    """
+    if df_catalogo is None or not str(texto_actividad).strip():
+        return None
+    tokens_query = _tokens_significativos(texto_actividad)
+    if not tokens_query:
+        return None
+    candidatos = df_catalogo[df_catalogo["NIVEL"] >= nivel_minimo]
+    mejor_score, mejor_fila = -1.0, None
+    for _, fila in candidatos.iterrows():
+        tokens_fila = _tokens_significativos(fila["DESCRIPCION"])
+        interseccion = tokens_query & tokens_fila
+        if not interseccion:
+            continue
+        union = tokens_query | tokens_fila
+        score = len(interseccion) / len(union)
+        if score > mejor_score:
+            mejor_score, mejor_fila = score, fila
+    if mejor_fila is None:
+        return None
+    codigo = str(mejor_fila["CODIGO"]).strip()
+    return {
+        "codigo_ciiu": codigo,
+        "descripcion_ciiu": str(mejor_fila["DESCRIPCION"]).strip(),
+        "ciiu_nivel_1": codigo[0].upper() if codigo else "",
+        "score_confianza": round(mejor_score, 2),
+        "advertencia": (
+            "Sección CIIU inferida por coincidencia de texto (no es el código oficial "
+            "de la SCVS) — sugerencia DRAFT sin validar por un contador. Ver PRD.md "
+            "§3, RF-11 y TASKS.md ¤mapeo_ciiu_actividad_principal."
+        ),
     }
 
 

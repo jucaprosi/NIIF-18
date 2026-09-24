@@ -16,7 +16,6 @@ from sala_auditoria import _service as aud_svc
 from sala_entidad import _service as ent_svc
 
 CIIU_PATH = "data/ciiu.xlsx"
-DIRECTORIO_SCVS_PATH = "data/directorio_companias_scvs.xlsx"
 
 
 def init_theme():
@@ -40,6 +39,30 @@ def confirm_reset():
             reset_app_state()
 
 
+def chip_categoria(categoria, extra_texto=""):
+    """Renderiza un encabezado con el color oficial de la categoría NIIF 18 (PRD.md
+    §11.5, `sala_catalogo.COLORES_NIIF18`) -- Streamlit no permite mezclar `column_config`
+    con un `Styler` con color por celda en el mismo `st.dataframe`, así que el color se
+    aplica a nivel de sección (un chip por categoría), no por fila.
+    """
+    color = cat_svc.COLORES_NIIF18.get(categoria, {"fondo": "#E4E4E4", "texto": "#3D3D3D"})
+    st.markdown(
+        f'<div style="background-color:{color["fondo"]};color:{color["texto"]};'
+        f'padding:6px 14px;border-radius:6px;font-weight:600;display:inline-block;'
+        f'margin-bottom:6px;">{categoria}{extra_texto}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def leyenda_colores_niif18():
+    chips = "".join(
+        f'<span style="background-color:{c["fondo"]};color:{c["texto"]};padding:4px 10px;'
+        f'border-radius:5px;font-weight:600;font-size:0.85em;margin-right:6px;">{cat}</span>'
+        for cat, c in cat_svc.COLORES_NIIF18.items()
+    )
+    st.markdown(chips, unsafe_allow_html=True)
+
+
 def cuentas_column_config(extra=None):
     config = {
         "Cuenta": st.column_config.TextColumn("Cuenta", pinned=True),
@@ -49,13 +72,6 @@ def cuentas_column_config(extra=None):
     if extra:
         config.update(extra)
     return config
-
-
-@st.cache_data(show_spinner="Cargando directorio SCVS (una sola vez por sesión)...")
-def _cargar_directorio_cacheado():
-    df = ent_svc.cargar_directorio(DIRECTORIO_SCVS_PATH)
-    fecha = ent_svc.fecha_snapshot_directorio(DIRECTORIO_SCVS_PATH)
-    return df, fecha
 
 
 @st.cache_data(show_spinner="Cargando catálogo CIIU (una sola vez por sesión)...")
@@ -112,41 +128,52 @@ def main():
     # ----------------- FASE 0: Entidad (RF-11) -----------------
     with tabs[0]:
         st.subheader("Identificación de la entidad", icon=":material/domain:")
-        st.caption("Busque el RUC en el directorio SCVS para obtener una sugerencia de actividad principal, o configure manualmente. Esta configuración condiciona el árbol de clasificación (RF-03).")
+        st.caption("Busque el RUC en el SRI (consulta en vivo, instantánea) para obtener una sugerencia de actividad principal, o configure manualmente. Esta configuración condiciona el árbol de clasificación (RF-03).")
         with st.form("form_entidad"):
             ruc_input = st.text_input("RUC", max_chars=13, placeholder="1790013731001")
-            buscar = st.form_submit_button("Buscar en SCVS", icon=":material/search:", type="primary")
+            buscar = st.form_submit_button("Buscar en el SRI", icon=":material/search:", type="primary")
         if buscar and ruc_input.strip():
-            df_directorio, fecha_snapshot = _cargar_directorio_cacheado()
-            entidad = ent_svc.buscar_entidad_por_ruc(df_directorio, ruc_input.strip(), fecha_snapshot)
+            entidad = ent_svc.buscar_entidad_ruc_sri(ruc_input.strip())
             st.session_state['entidad_encontrada'] = entidad
             st.session_state['entidad_ruc_buscado'] = ruc_input.strip()
 
         entidad = st.session_state.get('entidad_encontrada')
         ruc_buscado = st.session_state.get('entidad_ruc_buscado')
         if ruc_buscado and entidad is None:
-            st.warning(f"RUC '{ruc_buscado}' no encontrado en el snapshot local de la SCVS. Puede continuar con configuración 100% manual.", icon=":material/warning:")
+            st.warning(f"RUC '{ruc_buscado}' no encontrado en el SRI, o el servicio no respondió. Puede continuar con configuración 100% manual.", icon=":material/warning:")
 
         if entidad:
             with st.container(border=True):
                 st.markdown(f"**{entidad['razon_social']}**")
-                st.caption(f"RUC {entidad['ruc']} · {entidad['estado']} · snapshot SCVS del {entidad['fecha_snapshot_origen']}")
-                desc_ciiu = ent_svc.resolver_descripcion_ciiu(_cargar_ciiu_cacheado(), entidad['ciiu_nivel_1'])
-                st.write(f"CIIU nivel 1: **{entidad['ciiu_nivel_1']}** — {desc_ciiu or 'descripción no encontrada'}")
-                st.caption(f"CIIU nivel 6 (detalle): {entidad['ciiu_nivel_6']}")
-                sugerencia = ent_svc.sugerir_actividad_principal(entidad['ciiu_nivel_1'])
-                st.badge(sugerencia['advertencia'], icon=":material/warning:", color="orange")
+                st.caption(f"RUC {entidad['ruc']} · {entidad['estado']} · consulta en vivo al SRI")
+                st.write(f"Actividad económica (SRI): {entidad['actividad_economica_texto']}")
+                ciiu_inferido = ent_svc.inferir_ciiu_por_texto(entidad['actividad_economica_texto'], _cargar_ciiu_cacheado())
+                if ciiu_inferido:
+                    st.write(f"CIIU inferido: **{ciiu_inferido['ciiu_nivel_1']}** ({ciiu_inferido['codigo_ciiu']}) — {ciiu_inferido['descripcion_ciiu']} · confianza {ciiu_inferido['score_confianza']:.0%}")
+                    sugerencia = ent_svc.sugerir_actividad_principal(ciiu_inferido['ciiu_nivel_1'])
+                    st.badge(ciiu_inferido['advertencia'], icon=":material/warning:", color="orange")
+                else:
+                    st.caption("No se pudo inferir un código CIIU a partir del texto de actividad del SRI — configure manualmente.")
+                    sugerencia = {"financiacion_es_actividad_principal": False, "inversion_es_actividad_principal": False}
             fin_default = sugerencia['financiacion_es_actividad_principal']
             inv_default = sugerencia['inversion_es_actividad_principal']
         else:
             fin_default, inv_default = False, False
 
         st.markdown("##### Confirmar configuración de actividad principal")
+        # Clave dinámica atada al RUC buscado: Streamlit solo respeta `value=` la primera
+        # vez que una clave de widget se renderiza -- en corridas siguientes usa
+        # `st.session_state[key]`, ignorando el nuevo `fin_default`/`inv_default` de una
+        # búsqueda distinta. Sin esto, la sugerencia del SRI/CIIU quedaba calculada
+        # correctamente pero el checkbox nunca se pre-marcaba (bug encontrado al
+        # verificar en la app real, 2026-09-24) -- causa raíz, no un parche con
+        # `st.session_state.pop(...)` para "resetear" la clave vieja.
+        sufijo_widget = ruc_buscado or "manual"
         col_a, col_b = st.columns(2)
         with col_a:
-            fin_principal = st.checkbox("Financiar clientes es la actividad principal de la entidad", value=fin_default, key="chk_fin_principal")
+            fin_principal = st.checkbox("Financiar clientes es la actividad principal de la entidad", value=fin_default, key=f"chk_fin_principal_{sufijo_widget}")
         with col_b:
-            inv_principal = st.checkbox("Invertir en activos específicos es la actividad principal de la entidad", value=inv_default, key="chk_inv_principal")
+            inv_principal = st.checkbox("Invertir en activos específicos es la actividad principal de la entidad", value=inv_default, key=f"chk_inv_principal_{sufijo_widget}")
 
         if st.button("Confirmar configuración", icon=":material/check_circle:", type="primary"):
             origen = "confirmado_usuario" if entidad else "manual"
@@ -258,6 +285,7 @@ def main():
             df_reclass = st.session_state.get('df_clasificado', st.session_state['df_balanza']).copy()
             if 'Categoria_NIIF18' not in df_reclass.columns:
                 df_reclass['Categoria_NIIF18'] = clasificar_con_configuracion(df_reclass)
+            leyenda_colores_niif18()
             pendientes = val_svc.contar_cuentas_pendientes(df_reclass, cat_svc.CATEGORIAS_NIIF18)
             with st.container(horizontal=True):
                 if pendientes == 0:
@@ -333,13 +361,17 @@ def main():
                 st.bar_chart(chart_df, width="stretch")
 
             pl_col = st.column_config.NumberColumn("Efecto en resultados", format="$ %.2f")
-            with st.expander("Ver desglose operativo (Categoría 1)", icon=":material/work:", expanded=True):
+            with st.expander("Ver desglose operativo", icon=":material/work:", expanded=True):
+                chip_categoria(cat_svc.CATEGORIAS_NIIF18[1])
                 st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver desglose de inversión (Categoría 2)", icon=":material/trending_up:", expanded=False):
+            with st.expander("Ver desglose de inversión", icon=":material/trending_up:", expanded=False):
+                chip_categoria(cat_svc.CATEGORIAS_NIIF18[2])
                 st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver desglose de financiación (Categoría 3)", icon=":material/account_balance:", expanded=False):
+            with st.expander("Ver desglose de financiación", icon=":material/account_balance:", expanded=False):
+                chip_categoria(cat_svc.CATEGORIAS_NIIF18[3])
                 st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver cuentas excluidas de Balance General (Categoría 0)", icon=":material/block:", expanded=False):
+            with st.expander("Ver cuentas excluidas de Balance General", icon=":material/block:", expanded=False):
+                chip_categoria(cat_svc.CATEGORIAS_NIIF18[0])
                 st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('0.')][['Cuenta', 'Descripcion', 'Saldo']], column_config=cuentas_column_config(), hide_index=True, width="stretch")
         else:
             with st.container(border=True, horizontal_alignment="center"):

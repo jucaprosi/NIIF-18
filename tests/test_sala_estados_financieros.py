@@ -4,12 +4,12 @@ from sala_estados_financieros import _service as fs_svc
 
 def _df():
     return pd.DataFrame([
-        {"Cuenta": "410100", "Descripcion": "Venta de mercaderia", "Saldo": -1000.0, "Categoria_NIIF18": "1. Operación (Ingresos / Gastos Operativos)"},
-        {"Cuenta": "510100", "Descripcion": "Costo de ventas", "Saldo": 400.0, "Categoria_NIIF18": "1. Operación (Ingresos / Gastos Operativos)"},
-        {"Cuenta": "420100", "Descripcion": "Resultado por metodo de participacion", "Saldo": -100.0, "Categoria_NIIF18": "2. Inversión (Ingresos / Gastos por Inversiones)"},
-        {"Cuenta": "610100", "Descripcion": "Interes de prestamo bancario", "Saldo": 50.0, "Categoria_NIIF18": "3. Financiación (Costos / Pasivos Financieros)"},
+        {"Cuenta": "410100", "Descripcion": "Venta de mercaderia", "Saldo": -1000.0, "Categoria_NIIF18": "1. Operación"},
+        {"Cuenta": "510100", "Descripcion": "Costo de ventas", "Saldo": 400.0, "Categoria_NIIF18": "1. Operación"},
+        {"Cuenta": "420100", "Descripcion": "Resultado por metodo de participacion", "Saldo": -100.0, "Categoria_NIIF18": "2. Inversión"},
+        {"Cuenta": "610100", "Descripcion": "Interes de prestamo bancario", "Saldo": 50.0, "Categoria_NIIF18": "3. Financiación"},
         {"Cuenta": "550100", "Descripcion": "Gasto por impuesto a la renta", "Saldo": 90.0, "Categoria_NIIF18": "4. Impuestos a las Ganancias"},
-        {"Cuenta": "100000", "Descripcion": "Efectivo y equivalentes al efectivo", "Saldo": 5000.0, "Categoria_NIIF18": "0. Balance General (No P&L / Excluir)"},
+        {"Cuenta": "100000", "Descripcion": "Efectivo y equivalentes al efectivo", "Saldo": 5000.0, "Categoria_NIIF18": "0. Balance General"},
     ])
 
 
