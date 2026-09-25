@@ -14,6 +14,9 @@ from sala_reportes import _service as rep_svc
 from sala_validacion import _service as val_svc
 from sala_auditoria import _service as aud_svc
 from sala_entidad import _service as ent_svc
+from sala_situacion_financiera import _service as sf_svc
+from sala_flujo_efectivo import _service as fe_svc
+from sala_cambios_patrimonio import _service as cp_svc
 
 CIIU_PATH = "data/ciiu.xlsx"
 
@@ -93,6 +96,83 @@ def clasificar_con_configuracion(df):
         financiacion_es_actividad_principal=cfg.get('financiacion_es_actividad_principal', False),
         inversion_es_actividad_principal=cfg.get('inversion_es_actividad_principal', False),
     )
+
+
+def procesar_balanza_subida(prefijo, titulo_uploader):
+    """Ingesta completa (lectura + inferencia + puerta de calidad + remapeo manual) de
+    un archivo de balanza, parametrizada por `prefijo` para poder repetirla para el
+    comparativo (Año 1) sin duplicar la lógica -- extraída de la Fase 1 (RF-01) al
+    agregar RF-12/13/14 (§12.1), que necesitan un segundo período. `prefijo=""` sigue
+    escribiendo en las claves de sesión originales (`df_balanza`/`df_clasificado`) para
+    no romper el resto de la app; `prefijo="ano1_"` usa `ano1_df_balanza`/etc.
+    """
+    v_key = st.session_state.get('uploader_version', 0)
+    uploaded_file = st.file_uploader(
+        titulo_uploader,
+        type=["csv", "xlsx", "xls", "pdf"], key=f"uploader_{prefijo}{v_key}",
+        help="Soporta .xlsx, .xls, .csv y .pdf generado por una herramienta (ERP, Excel, sistema contable) — no fotos ni escaneos, que no tienen texto extraíble.",
+        label_visibility="collapsed",
+    )
+    if uploaded_file is None:
+        return
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df_raw = pd.read_csv(uploaded_file)
+            st.session_state[f'{prefijo}raw_filename'] = uploaded_file.name
+        elif uploaded_file.name.endswith(".pdf"):
+            df_raw, motivos_pdf = imp_svc.extraer_tabla_de_pdf(uploaded_file)
+            if df_raw is None:
+                st.error(" ".join(motivos_pdf), icon=":material/error:")
+                return
+            st.session_state[f'{prefijo}raw_filename'] = uploaded_file.name
+        else:
+            xl = pd.ExcelFile(uploaded_file)
+            sheet_names = xl.sheet_names
+            default_sheet_idx = imp_svc.sugerir_hoja_balanza(sheet_names)
+            sel_sheet = st.selectbox("Pestaña del libro Excel", sheet_names, index=default_sheet_idx, key=f"sheet_{prefijo}{v_key}") if len(sheet_names) > 1 else sheet_names[0]
+            df_raw = imp_svc.read_excel_smart_header(uploaded_file, sel_sheet)
+            st.session_state[f'{prefijo}raw_filename'] = f"{uploaded_file.name} [{sel_sheet}]"
+
+        cols_available = list(df_raw.columns)
+        inf_cta, inf_desc, inf_saldo, conf_pct = imp_svc.infer_columns_by_mathematical_weights(df_raw)
+
+        # Puerta de calidad (no solo advertencia): un archivo puede traer hojas de
+        # referencia (respuesta esperada, EEFF ya resumido) con otra estructura —
+        # `infer_columns_by_mathematical_weights` nunca valida esa premisa, solo
+        # elige la mejor opción entre columnas malas. Ver TASKS.md
+        # ¤validar_calidad_hoja_balanza y PRD.md §10 para el caso real que lo motivó.
+        es_balanza_valida, motivos_calidad = imp_svc.evaluar_calidad_balanza(df_raw, inf_cta, inf_saldo)
+        if not es_balanza_valida:
+            st.session_state[f'{prefijo}df_balanza'] = None
+            st.session_state[f'{prefijo}df_clasificado'] = None
+            st.error(" ".join(motivos_calidad), icon=":material/error:")
+        else:
+            df_p = imp_svc.construir_balanza_estandar(df_raw, inf_cta, inf_desc, inf_saldo)
+            df_p['Categoria_NIIF18'] = clasificar_con_configuracion(df_p)
+            st.session_state[f'{prefijo}df_balanza'] = df_p
+            st.session_state[f'{prefijo}df_clasificado'] = df_p
+            st.session_state[f'{prefijo}fuente_origen'] = f"{st.session_state.get(f'{prefijo}raw_filename', 'Archivo')}"
+
+        with st.expander("Personalizar mapeo de columnas (opcional)", icon=":material/tune:", expanded=not es_balanza_valida):
+            st.caption(f"Inferencia matemática: {conf_pct:.1f}% de confianza.")
+            if not es_balanza_valida:
+                st.caption("La detección automática de columnas falló (ver el error arriba). Ajuste el mapeo manualmente si esta pestaña sí es una balanza válida.")
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1: s_cta = st.selectbox("Código / cuenta", cols_available, index=cols_available.index(inf_cta), key=f"map_cta_{prefijo}{v_key}")
+            with col_m2: s_desc = st.selectbox("Descripción", cols_available, index=cols_available.index(inf_desc), key=f"map_desc_{prefijo}{v_key}")
+            with col_m3: s_saldo = st.selectbox("Saldo / importe", cols_available, index=cols_available.index(inf_saldo), key=f"map_saldo_{prefijo}{v_key}")
+            if s_cta != inf_cta or s_desc != inf_desc or s_saldo != inf_saldo:
+                ok_manual, motivos_manual = imp_svc.evaluar_calidad_balanza(df_raw, s_cta, s_saldo)
+                if not ok_manual:
+                    st.error(" ".join(motivos_manual), icon=":material/error:")
+                else:
+                    df_m = imp_svc.construir_balanza_estandar(df_raw, s_cta, s_desc, s_saldo)
+                    df_m['Categoria_NIIF18'] = clasificar_con_configuracion(df_m)
+                    st.session_state[f'{prefijo}df_balanza'] = df_m
+                    st.session_state[f'{prefijo}df_clasificado'] = df_m
+                    st.session_state[f'{prefijo}fuente_origen'] = f"{st.session_state.get(f'{prefijo}raw_filename', 'Archivo')}"
+    except Exception as e:
+        st.error(f"Error al leer el archivo: {e}", icon=":material/error:")
 
 
 # ¤interfaz
@@ -194,67 +274,19 @@ def main():
     # ----------------- FASE 1: Ingesta -----------------
     with tabs[1]:
         st.subheader("Bandeja de entrada de balanzas contables", icon=":material/upload_file:")
-        st.caption("Arrastre su balanza de comprobación (Excel o CSV); las columnas de cuenta, descripción y saldo se detectan automáticamente.")
-        v_key = st.session_state.get('uploader_version', 0)
-        uploaded_file = st.file_uploader(
-            "Archivo contable",
-            type=["csv", "xlsx", "xls"], key=f"uploader_{v_key}",
-            help="Soporta .xlsx, .xls y .csv. El procesamiento es automático al soltar el archivo.",
-            label_visibility="collapsed",
+        st.caption("Arrastre su balanza de comprobación (Excel, CSV o PDF generado por herramienta); las columnas de cuenta, descripción y saldo se detectan automáticamente.")
+
+        st.markdown("##### Balanza actual (Año 2)")
+        procesar_balanza_subida(prefijo="", titulo_uploader="Archivo contable — año actual")
+
+        comparativo_on = st.toggle(
+            "Agregar balanza comparativa (Año 1)", value=st.session_state.get('comparativo_activo', False),
+            help="Necesaria para calcular Flujo de Efectivo y Cambios en el Patrimonio (RF-12/13/14, §12.1) — ambos requieren comparar dos períodos, no un solo balance.",
         )
-        if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith(".csv"):
-                    df_raw = pd.read_csv(uploaded_file)
-                    st.session_state['raw_filename'] = uploaded_file.name
-                else:
-                    xl = pd.ExcelFile(uploaded_file)
-                    sheet_names = xl.sheet_names
-                    default_sheet_idx = imp_svc.sugerir_hoja_balanza(sheet_names)
-                    sel_sheet = st.selectbox("Pestaña del libro Excel", sheet_names, index=default_sheet_idx) if len(sheet_names) > 1 else sheet_names[0]
-                    df_raw = imp_svc.read_excel_smart_header(uploaded_file, sel_sheet)
-                    st.session_state['raw_filename'] = f"{uploaded_file.name} [{sel_sheet}]"
-
-                cols_available = list(df_raw.columns)
-                inf_cta, inf_desc, inf_saldo, conf_pct = imp_svc.infer_columns_by_mathematical_weights(df_raw)
-
-                # Puerta de calidad (no solo advertencia): un archivo puede traer hojas de
-                # referencia (respuesta esperada, EEFF ya resumido) con otra estructura —
-                # `infer_columns_by_mathematical_weights` nunca valida esa premisa, solo
-                # elige la mejor opción entre columnas malas. Ver TASKS.md
-                # ¤validar_calidad_hoja_balanza y PRD.md §10 para el caso real que lo motivó.
-                es_balanza_valida, motivos_calidad = imp_svc.evaluar_calidad_balanza(df_raw, inf_cta, inf_saldo)
-                if not es_balanza_valida:
-                    st.session_state['df_balanza'] = None
-                    st.session_state['df_clasificado'] = None
-                    st.error(" ".join(motivos_calidad), icon=":material/error:")
-                else:
-                    df_p = imp_svc.construir_balanza_estandar(df_raw, inf_cta, inf_desc, inf_saldo)
-                    df_p['Categoria_NIIF18'] = clasificar_con_configuracion(df_p)
-                    st.session_state['df_balanza'] = df_p
-                    st.session_state['df_clasificado'] = df_p
-                    st.session_state['fuente_origen'] = f"{st.session_state.get('raw_filename', 'Archivo')}"
-
-                with st.expander("Personalizar mapeo de columnas (opcional)", icon=":material/tune:", expanded=not es_balanza_valida):
-                    st.caption(f"Inferencia matemática: {conf_pct:.1f}% de confianza.")
-                    if not es_balanza_valida:
-                        st.caption("La detección automática de columnas falló (ver el error arriba). Ajuste el mapeo manualmente si esta pestaña sí es una balanza válida.")
-                    col_m1, col_m2, col_m3 = st.columns(3)
-                    with col_m1: s_cta = st.selectbox("Código / cuenta", cols_available, index=cols_available.index(inf_cta))
-                    with col_m2: s_desc = st.selectbox("Descripción", cols_available, index=cols_available.index(inf_desc))
-                    with col_m3: s_saldo = st.selectbox("Saldo / importe", cols_available, index=cols_available.index(inf_saldo))
-                    if s_cta != inf_cta or s_desc != inf_desc or s_saldo != inf_saldo:
-                        ok_manual, motivos_manual = imp_svc.evaluar_calidad_balanza(df_raw, s_cta, s_saldo)
-                        if not ok_manual:
-                            st.error(" ".join(motivos_manual), icon=":material/error:")
-                        else:
-                            df_m = imp_svc.construir_balanza_estandar(df_raw, s_cta, s_desc, s_saldo)
-                            df_m['Categoria_NIIF18'] = clasificar_con_configuracion(df_m)
-                            st.session_state['df_balanza'] = df_m
-                            st.session_state['df_clasificado'] = df_m
-                            st.session_state['fuente_origen'] = f"{st.session_state.get('raw_filename', 'Archivo')}"
-            except Exception as e:
-                st.error(f"Error al leer el archivo: {e}", icon=":material/error:")
+        st.session_state['comparativo_activo'] = comparativo_on
+        if comparativo_on:
+            st.markdown("##### Balanza comparativa (Año 1)")
+            procesar_balanza_subida(prefijo="ano1_", titulo_uploader="Archivo contable — año comparativo")
 
         if 'df_balanza' in st.session_state and st.session_state['df_balanza'] is not None:
             st_val = float(st.session_state['df_balanza']['Saldo'].sum())
@@ -340,39 +372,113 @@ def main():
                 st.write("No hay datos para clasificar todavía.")
                 st.caption("Cargue una balanza en la pestaña Ingesta para generar la matriz de reclasificación.")
 
-    # ----------------- FASE 3: Árbol EEFF -----------------
+    # ----------------- FASE 3: Estados Financieros (RF-04, RF-12, RF-13, RF-14) -----------------
     with tabs[3]:
-        st.subheader("Árbol de rendimiento estructurado", icon=":material/account_tree:")
+        st.subheader("Estados Financieros", icon=":material/account_tree:")
         if 'df_clasificado' in st.session_state and st.session_state['df_clasificado'] is not None:
             df_c, subtotales = fs_svc.calcular_subtotales(st.session_state['df_clasificado'])
             sub_1 = subtotales['sub_1_resultado_operativo']
             sub_2 = subtotales['sub_2_antes_fin_imp']
             sub_3 = subtotales['sub_3_resultado_periodo']
+            df_balance_ano2 = df_c[df_c['Categoria_NIIF18'].str.startswith('0.')].copy()
+            df_balance_ano2['Categoria_Situacion_Financiera'] = sf_svc.clasificar_dataframe_balance(df_balance_ano2)
 
-            st.markdown("##### Subtotales mandatorios (cálculo en vivo)")
-            with st.container(horizontal=True):
-                st.metric("1. Resultado operativo", f"$ {sub_1:,.2f}", border=True)
-                st.metric("2. Antes de fin. e imptos.", f"$ {sub_2:,.2f}", border=True)
-                st.metric("3. Resultado del periodo", f"$ {sub_3:,.2f}", border=True)
+            sub_eeff = st.tabs(["Estado de Resultados", "Situación Financiera", "Flujo de Efectivo", "Cambios en Patrimonio"])
 
-            with st.container(border=True):
-                st.markdown("**Análisis gráfico de subtotales**")
-                chart_df = pd.DataFrame({"Subtotal": ["1. Operativo", "2. Pre-fin/imp", "3. Periodo neto"], "Monto ($)": [sub_1, sub_2, sub_3]}).set_index("Subtotal")
-                st.bar_chart(chart_df, width="stretch")
+            with sub_eeff[0]:
+                st.markdown("##### Subtotales mandatorios (cálculo en vivo)")
+                with st.container(horizontal=True):
+                    st.metric("1. Resultado operativo", f"$ {sub_1:,.2f}", border=True)
+                    st.metric("2. Antes de fin. e imptos.", f"$ {sub_2:,.2f}", border=True)
+                    st.metric("3. Resultado del periodo", f"$ {sub_3:,.2f}", border=True)
 
-            pl_col = st.column_config.NumberColumn("Efecto en resultados", format="$ %.2f")
-            with st.expander("Ver desglose operativo", icon=":material/work:", expanded=True):
-                chip_categoria(cat_svc.CATEGORIAS_NIIF18[1])
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver desglose de inversión", icon=":material/trending_up:", expanded=False):
-                chip_categoria(cat_svc.CATEGORIAS_NIIF18[2])
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver desglose de financiación", icon=":material/account_balance:", expanded=False):
-                chip_categoria(cat_svc.CATEGORIAS_NIIF18[3])
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
-            with st.expander("Ver cuentas excluidas de Balance General", icon=":material/block:", expanded=False):
-                chip_categoria(cat_svc.CATEGORIAS_NIIF18[0])
-                st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('0.')][['Cuenta', 'Descripcion', 'Saldo']], column_config=cuentas_column_config(), hide_index=True, width="stretch")
+                with st.container(border=True):
+                    st.markdown("**Análisis gráfico de subtotales**")
+                    chart_df = pd.DataFrame({"Subtotal": ["1. Operativo", "2. Pre-fin/imp", "3. Periodo neto"], "Monto ($)": [sub_1, sub_2, sub_3]}).set_index("Subtotal")
+                    st.bar_chart(chart_df, width="stretch")
+
+                pl_col = st.column_config.NumberColumn("Efecto en resultados", format="$ %.2f")
+                with st.expander("Ver desglose operativo", icon=":material/work:", expanded=True):
+                    chip_categoria(cat_svc.CATEGORIAS_NIIF18[1])
+                    st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('1.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+                with st.expander("Ver desglose de inversión", icon=":material/trending_up:", expanded=False):
+                    chip_categoria(cat_svc.CATEGORIAS_NIIF18[2])
+                    st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('2.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+                with st.expander("Ver desglose de financiación", icon=":material/account_balance:", expanded=False):
+                    chip_categoria(cat_svc.CATEGORIAS_NIIF18[3])
+                    st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('3.')][['Cuenta', 'Descripcion', 'Saldo', 'PL_Neto']], column_config=cuentas_column_config({"PL_Neto": pl_col}), hide_index=True, width="stretch")
+                with st.expander("Ver cuentas excluidas de Balance General", icon=":material/block:", expanded=False):
+                    chip_categoria(cat_svc.CATEGORIAS_NIIF18[0])
+                    st.dataframe(df_c[df_c['Categoria_NIIF18'].str.startswith('0.')][['Cuenta', 'Descripcion', 'Saldo']], column_config=cuentas_column_config(), hide_index=True, width="stretch")
+
+            with sub_eeff[1]:
+                st.caption("NIC 1.60-76 — clasificación por código de cuenta (misma señal usada en el árbol de clasificación, ver aporte A-05).")
+                _, totales_sf = sf_svc.calcular_totales(df_balance_ano2)
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.metric("Activo Corriente", f"$ {totales_sf['activo_corriente']:,.2f}", border=True)
+                    st.metric("Activo No Corriente", f"$ {totales_sf['activo_no_corriente']:,.2f}", border=True)
+                    st.metric("Total Activo", f"$ {totales_sf['total_activo']:,.2f}", border=True)
+                with c2:
+                    st.metric("Pasivo Corriente", f"$ {totales_sf['pasivo_corriente']:,.2f}", border=True)
+                    st.metric("Pasivo No Corriente", f"$ {totales_sf['pasivo_no_corriente']:,.2f}", border=True)
+                    st.metric("Total Pasivo", f"$ {totales_sf['total_pasivo']:,.2f}", border=True)
+                with c3:
+                    st.metric("Patrimonio", f"$ {totales_sf['patrimonio']:,.2f}", border=True)
+                    st.metric("Resultado del período (implícito)", f"$ {totales_sf['resultado_del_periodo_implicito']:,.2f}", border=True)
+                    cuadra_sf = abs(totales_sf['total_activo'] - totales_sf['total_pasivo_y_patrimonio']) < 0.01
+                    st.badge("Activo = Pasivo + Patrimonio" if cuadra_sf else "No cuadra — revisar", icon=":material/check_circle:" if cuadra_sf else ":material/warning:", color="green" if cuadra_sf else "orange")
+                st.dataframe(df_balance_ano2[['Cuenta', 'Descripcion', 'Saldo', 'Categoria_Situacion_Financiera']], hide_index=True, width="stretch", height=300)
+
+            comparativo_listo = (
+                st.session_state.get('comparativo_activo')
+                and st.session_state.get('ano1_df_clasificado') is not None
+            )
+            df_balance_ano1 = None
+            if comparativo_listo:
+                df_ano1_c = st.session_state['ano1_df_clasificado']
+                df_balance_ano1 = df_ano1_c[df_ano1_c['Categoria_NIIF18'].str.startswith('0.')].copy()
+                df_balance_ano1['Categoria_Situacion_Financiera'] = sf_svc.clasificar_dataframe_balance(df_balance_ano1)
+
+            with sub_eeff[2]:
+                st.caption("NIC 7.18(b), método indirecto — requiere la balanza comparativa de Año 1 (pestaña Ingesta).")
+                if not comparativo_listo:
+                    st.info("Active y cargue \"Balanza comparativa (Año 1)\" en la pestaña Ingesta para calcular el Flujo de Efectivo.", icon=":material/info:")
+                else:
+                    fe = fe_svc.calcular_flujo_efectivo_indirecto(df_c, df_balance_ano1, df_balance_ano2, sub_3)
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric("Flujo Operativo (CFO)", f"$ {fe['cfo']:,.2f}", border=True)
+                    with c2: st.metric("Flujo de Inversión (CFI)", f"$ {fe['cfi']:,.2f}", border=True)
+                    with c3: st.metric("Flujo de Financiación (CFF)", f"$ {fe['cff']:,.2f}", border=True)
+                    st.metric("Flujo neto de efectivo del período", f"$ {fe['flujo_neto_efectivo']:,.2f}", border=True)
+                    with st.expander("Ver conciliación completa", icon=":material/list_alt:"):
+                        st.json(fe)
+                    st.caption("Simplificación reconocida (PRD.md §8): usa el cambio neto de cada categoría de balance entre los dos períodos, no un libro de activos fijos detallado — no valida distinción entre compras y disposiciones brutas.")
+
+            with sub_eeff[3]:
+                st.caption("NIC 1.106-110 — requiere la balanza comparativa de Año 1 (pestaña Ingesta).")
+                if not comparativo_listo:
+                    st.info("Active y cargue \"Balanza comparativa (Año 1)\" en la pestaña Ingesta para calcular los Cambios en el Patrimonio.", icon=":material/info:")
+                else:
+                    df_cp, totales_cp = cp_svc.construir_cambios_patrimonio(df_balance_ano1, df_balance_ano2, sub_3)
+                    st.dataframe(df_cp, hide_index=True, width="stretch")
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric("Patrimonio inicial (Año 1)", f"$ {totales_cp['patrimonio_inicial']:,.2f}", border=True)
+                    with c2: st.metric("Movimientos netos del período", f"$ {(totales_cp['patrimonio_final'] - totales_cp['patrimonio_inicial']):,.2f}", border=True)
+                    with c3: st.metric("Patrimonio final (Año 2)", f"$ {totales_cp['patrimonio_final']:,.2f}", border=True)
+
+                    st.markdown("##### Estado de Resultado Integral (NIC 1.81A / NIIF 18)")
+                    st.caption("Resultado del Período + Otro Resultado Integral (ORI) — ORI detectado a partir de movimientos en cuentas de reserva del Patrimonio no explicados por utilidad ni dividendos. Heurística DRAFT: requiere revisión contable cuenta por cuenta (ver expander).")
+                    ri = cp_svc.calcular_resultado_integral(df_cp, sub_3)
+                    c1, c2, c3 = st.columns(3)
+                    with c1: st.metric("Resultado del Período", f"$ {ri['resultado_del_periodo']:,.2f}", border=True)
+                    with c2: st.metric("Otro Resultado Integral (ORI)", f"$ {ri['otro_resultado_integral']:,.2f}", border=True)
+                    with c3: st.metric("Resultado Integral Total", f"$ {ri['resultado_integral_total']:,.2f}", border=True)
+                    if ri['desglose_ori']:
+                        with st.expander("Ver desglose de ORI por cuenta — confirme con su contador antes de reportar", icon=":material/warning:"):
+                            st.dataframe(pd.DataFrame(ri['desglose_ori']), hide_index=True, width="stretch")
+                    else:
+                        st.caption("Sin movimientos de reserva detectados como ORI en este período.")
         else:
             with st.container(border=True, horizontal_alignment="center"):
                 st.markdown(":material/account_tree:")
