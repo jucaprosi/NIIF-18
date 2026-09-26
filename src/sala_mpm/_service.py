@@ -38,6 +38,7 @@ def calcular_base_niif(df_clasificado, subtotal_base):
     return subtotales['sub_3_resultado_periodo']
 
 
+# ¤sala_mpm ¤mpm_nota
 def construir_registro_mpm(nombre, subtotal_base, valor_base_niif, ajuste, justificacion):
     """RF-06: arma la fila de conciliación auditada (nota NIIF 18) para una MPM."""
     return {
