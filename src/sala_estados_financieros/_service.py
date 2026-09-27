@@ -32,7 +32,7 @@ def calculate_pl_contribution(row):
     return abs(saldo) if is_income_account(cta, desc, saldo) else -abs(saldo)
 
 
-# ¤sala_estados_financieros ¤subtotales_mandatorios
+# ¤sala_estados_financieros ¤estado_resultados
 def calcular_subtotales(df_clasificado):
     """Calcula PL_Neto por partida y los 3 subtotales mandatorios (PRD.md §2.2).
 
