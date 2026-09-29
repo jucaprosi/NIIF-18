@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-# [¤protocolo_migracion_legacy] ZERAG BIOS Clean-Room Pattern (Presentador Puro)
+# ZERAG BIOS Clean-Room Pattern (Presentador Puro)
 # Migración Fase 0 completada: toda la lógica de negocio vive en las compuertas
-# _service.py de cada sala (PRD.md §10, TASKS.md ¤fase_migracion_adpa). Este archivo
+# _service.py de cada sala (PRD.md §10, TASKS.md ). Este archivo
 # solo orquesta Streamlit y llama a las salas — no calcula ni clasifica nada por sí mismo.
 from sala_importacion import _service as imp_svc
 from sala_catalogo import _service as cat_svc
@@ -140,7 +140,7 @@ def procesar_balanza_subida(prefijo, titulo_uploader):
         # referencia (respuesta esperada, EEFF ya resumido) con otra estructura —
         # `infer_columns_by_mathematical_weights` nunca valida esa premisa, solo
         # elige la mejor opción entre columnas malas. Ver TASKS.md
-        # ¤validar_calidad_hoja_balanza y PRD.md §10 para el caso real que lo motivó.
+        # y PRD.md §10 para el caso real que lo motivó.
         es_balanza_valida, motivos_calidad = imp_svc.evaluar_calidad_balanza(df_raw, inf_cta, inf_saldo)
         if not es_balanza_valida:
             st.session_state[f'{prefijo}df_balanza'] = None
@@ -175,7 +175,6 @@ def procesar_balanza_subida(prefijo, titulo_uploader):
         st.error(f"Error al leer el archivo: {e}", icon=":material/error:")
 
 
-# ¤interfaz
 def main():
     init_theme()
     if 'uploader_version' not in st.session_state:
@@ -544,7 +543,7 @@ def main():
         if not hay_datos:
             st.caption("Los archivos de exportación se habilitan luego de cargar y clasificar una balanza.")
 
-        # Puerta de reconciliación obligatoria (TASKS.md ¤puerta_reconciliacion_beta,
+        # Puerta de reconciliación obligatoria (TASKS.md ,
         # inspirada en IFRS-Converter: "no reconciliation, no finalized result"). Bloquea
         # el Estado de Resultados regulatorio — el CSV de mapeo/trazabilidad sigue
         # disponible siempre porque es precisamente la herramienta para diagnosticar por

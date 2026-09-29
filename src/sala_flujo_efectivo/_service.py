@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_flujo_efectivo.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-13, §12.1 Fase B — funcionalidad completa a pedido del
 propietario, 2026-09-24): Estado de Flujo de Efectivo bajo NIC 7 ("Statement of Cash
@@ -54,7 +53,6 @@ def _suma_por_palabras(df_pl_clasificado, palabras):
     return float(df_pl_clasificado.loc[mask, 'Saldo'].sum())
 
 
-# ¤sala_flujo_efectivo
 def calcular_flujo_efectivo_indirecto(df_pl_clasificado, df_balance_ano1, df_balance_ano2, resultado_neto):
     """Estado de Flujo de Efectivo, método indirecto (NIC 7.18(b)).
 

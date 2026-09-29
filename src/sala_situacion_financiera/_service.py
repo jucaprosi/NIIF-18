@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_situacion_financiera.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-12, §12.1 Fase B — funcionalidad completa a pedido del
 propietario, 2026-09-24): clasificar las cuentas de balance de una balanza de
@@ -14,7 +13,7 @@ este proyecto): las cuentas de balance siguen la convención de plan de cuentas
 `1.1.x` = Activo Corriente, `1.2.x` = Activo No Corriente, `2.1.x` = Pasivo
 Corriente, `2.2.x` = Pasivo No Corriente, `3.x` = Patrimonio — el mismo tipo de señal
 que ya demostró ser más confiable que las palabras clave de la descripción (ver
-`APORTES_INEDITOS.md` A-05, `¤discrepancia_motor_tb_erp_pendiente`).
+`APORTES_INEDITOS.md` A-05, ).
 
 NIC 1.66-68 define "corriente" por el criterio operativo: se espera realizar/liquidar
 dentro del ciclo normal de operación o 12 meses, se mantiene principalmente para
@@ -56,7 +55,6 @@ _PREFIJOS_BALANCE = [
 ]
 
 
-# ¤sala_situacion_financiera
 def clasificar_partida_balance(cuenta, descripcion=""):
     """Clasifica una cuenta de balance por prefijo de código (NIC 1.60-76).
 

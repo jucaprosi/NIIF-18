@@ -54,7 +54,7 @@ def test_motor_completo_sobre_tb_erp_reproduce_er_niif18_esperado():
     # Prueba de regresión de extremo a extremo (importación -> clasificación -> subtotales)
     # contra la hoja "respuesta esperada" del propio archivo (ER_NIIF18). Fija los 3
     # subtotales exactos que el motor debe reproducir -- documentado como brecha abierta
-    # en TASKS.md ¤discrepancia_motor_tb_erp_pendiente hasta que se corrigió la causa
+    # en TASKS.md hasta que se corrigió la causa
     # raíz (cuentas de balance 1.x/2.x con vocabulario de flujo -- "Depreciación
     # acumulada", "Deterioro acumulado", "Provisión por litigios" -- entraban al Estado
     # de Resultados por error, inflando el resultado operativo en $690,000).

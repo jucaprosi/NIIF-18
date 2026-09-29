@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_cambios_patrimonio.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-14, §12.1 Fase B — funcionalidad completa a pedido del
 propietario, 2026-09-24): Estado de Cambios en el Patrimonio bajo NIC 1.106-110 —
@@ -32,7 +31,7 @@ Acumulados a una Reserva Legal (apropiación estatutaria, común en Ecuador) es 
 traslado interno del patrimonio, no una ganancia/pérdida nueva del período, y hoy se
 contaría como ORI por error si la cuenta de reserva legal no se excluye explícitamente.
 Requiere revisión contable cuenta por cuenta antes de producción (mismo criterio que
-`¤mapeo_ciiu_actividad_principal`).
+).
 
 **Riesgo señalado (PRD.md §8)**: no validado todavía contra un caso real de dos
 períodos (mismo motivo que `sala_flujo_efectivo` — el archivo de prueba de este
@@ -65,7 +64,6 @@ def _es_cuenta_resultados(descripcion):
 _PALABRAS_NO_ORI = ('capital', 'accion', 'acción', 'aporte', 'reserva legal', 'reserva estatutaria')
 
 
-# ¤sala_cambios_patrimonio
 def construir_cambios_patrimonio(df_balance_ano1, df_balance_ano2, resultado_neto):
     """Concilia cada cuenta de Patrimonio entre Año 1 y Año 2 (NIC 1.106-110).
 
@@ -140,7 +138,6 @@ def construir_cambios_patrimonio(df_balance_ano1, df_balance_ano2, resultado_net
     return df_conciliacion, totales
 
 
-# ¤sala_cambios_patrimonio
 def calcular_resultado_integral(df_conciliacion, resultado_neto):
     """Estado de Resultado Integral = Resultado del Período + Otro Resultado Integral
     (NIC 1.81A, NIIF 18). El ORI se identifica en `df_conciliacion` (salida de

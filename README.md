@@ -1,5 +1,4 @@
 # NIIF 18 Financial Reporting Matrix - Manual de Operación
-[¤protocolo_migracion_legacy]
 
 Bienvenidos a la **Plataforma de Cumplimiento y Reclasificación NIIF 18**. 
 

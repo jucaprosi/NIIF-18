@@ -1,6 +1,6 @@
 """
 Verifica la caché en disco (.parquet) de sala_entidad.cargar_directorio
-(TASKS.md ¤optimizar_carga_directorio_scvs), sin depender del xlsx real de 227k filas.
+(TASKS.md ), sin depender del xlsx real de 227k filas.
 """
 import os
 import time

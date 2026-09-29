@@ -1,10 +1,9 @@
 """
 Compuerta _service.py para sala_importacion.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-01): importar y validar una balanza de comprobación desde
 CSV, Excel o PDF generado por herramienta, sin depender de nombres de cabecera fijos
-(ver ¤¦aportes A-01 en governance/artefactos/APORTES_INEDITOS.md).
+(ver A-01 en governance/artefactos/APORTES_INEDITOS.md).
 
 Soporte PDF (2026-09-24, a pedido del propietario: "PDF generados con herramientas, no
 foto ni scan"): `extraer_tabla_de_pdf` usa `pdfplumber` (Python puro, sin binarios
@@ -173,7 +172,6 @@ def infer_columns_by_mathematical_weights(df):
     return best_assignment[0], best_assignment[1], best_assignment[2], min(100.0, max(10.0, (best_score / 3.0) * 100.0))
 
 
-# ¤sala_importacion
 def construir_balanza_estandar(df_raw, col_cuenta, col_descripcion, col_saldo):
     """Normaliza un DataFrame crudo a las 3 columnas estándar (Cuenta, Descripcion, Saldo).
 
@@ -193,7 +191,6 @@ def construir_balanza_estandar(df_raw, col_cuenta, col_descripcion, col_saldo):
     return df.reset_index(drop=True)
 
 
-# ¤sala_importacion
 def extraer_tabla_de_pdf(archivo):
     """Extrae la primera tabla real de un PDF generado por herramienta (no escaneado).
 
