@@ -20,7 +20,7 @@ IFRS 18) — **no** como funcionalidad operativa de la app. Hoy no existe ningú
 automático de una cuenta clasificada a una fila específica de una plantilla FINREP, ni
 exportación en el formato/estructura que la EBA exige.
 
-## Por qué no se adoptó ya (ver `PRD.md` §11.4)
+## Por qué no se adoptó ya (ver `PRD.md` §11.2)
 
 FINREP es el reporte **supervisor bancario** de la EBA — diseñado para entidades de
 crédito bajo supervisión prudencial europea, con decenas de líneas específicas a

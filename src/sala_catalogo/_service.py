@@ -13,6 +13,7 @@ __all__ = ["CATEGORIAS_NIIF18", "CATEGORIA_BALANCE_GENERAL", "COLORES_NIIF18"]
 # etc.); solo se recorta la descripción entre paréntesis.
 CATEGORIA_BALANCE_GENERAL = "0. Balance General"
 
+# ¤categorias_niif18_enum
 CATEGORIAS_NIIF18 = [
     CATEGORIA_BALANCE_GENERAL,
     "1. Operación",

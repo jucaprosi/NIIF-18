@@ -70,6 +70,7 @@ def clasificar_partida_balance(cuenta, descripcion=""):
     return CATEGORIA_NO_CLASIFICADA
 
 
+# ¤clasificar_dataframe_balance
 def clasificar_dataframe_balance(df):
     """Aplica `clasificar_partida_balance` fila a fila sobre una balanza ya filtrada a
     cuentas de balance (típicamente `Categoria_NIIF18 == '0. Balance General'` de

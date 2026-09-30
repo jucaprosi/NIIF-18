@@ -2,6 +2,7 @@
 ## **Proyecto:** NIIF 18
 
 ## Estatus
+`¤estatus_purga_aportes`
 
 **Revisión (2026-09-22):** se auditó el contenido completo en busca de algo aplicable al
 dominio NIIF 18 (contabilidad, clasificación de partidas, estados financieros). Casi todo
@@ -37,6 +38,7 @@ de heurísticas — eso fue precisamente el defecto del contenido purgado. Cada 
 es un patrón aplicado, con su soporte bibliográfico real y su verificación concreta.
 
 ### A-01. Inferencia de rol de columna por densidad de forma, no por nombre de cabecera
+`¤a01_inferencia_columna_densidad`
 
 **Descripción:** `infer_columns_by_mathematical_weights` (`src/app.py`) decide si una
 columna de una balanza importada es código, descripción o saldo a partir de la *forma*
@@ -67,6 +69,7 @@ garantizado, a diferencia de lo que afirmaba el "Teorema 99" purgado).
 no introduce una sala o concepto de dominio nuevo — ver nota de compilación arriba).
 
 ### A-02. Sugerencia algorítmica con confirmación humana obligatoria antes de alimentar una decisión regulatoria
+`¤a02_sugerencia_confirmacion_humana`
 
 **Descripción:** en `PRD.md` v3.1 (RF-11), el código CIIU de una entidad puede *sugerir*
 si financiación o inversión es su actividad principal (`ConfiguracionEntidad`), pero esa
@@ -101,6 +104,7 @@ bloquea con `origen_actividad_principal = "sugerido_ciiu"` sin confirmar.
 esta entrada documenta el *patrón* detrás de esa fila, no introduce un token nuevo.
 
 ### A-03. Imports declarados-pero-no-usados como marcador legible de una migración "Strangler Fig" incompleta
+`¤a03_imports_strangler_fig`
 
 **Descripción:** `src/app.py` importa las 7 compuertas `_service.py` de las salas ADPA
 bajo el comentario ` ZERAG BIOS Clean-Room Pattern` — pero,
@@ -132,6 +136,7 @@ se hizo en esta sesión para fundamentar `PRD.md` §10.
 su resultado ya está capturado en `PRD.md` §10 y en `TASKS.md` .
 
 ### A-04. Un artefacto de gobernanza multi-entidad en un solo archivo es invisible para herramientas de indexación por archivo
+`¤a04_artefacto_multientidad`
 
 **Descripción:** el propietario detectó que `TASKS.md` no podía recibir rastros
 estigmérgicos individuales por tarea (`mcp_inject_stigmergic_trace`). Antes de corregir,
@@ -180,7 +185,7 @@ concepto del negocio NIIF 18).
 
 ---
 
-## Aportes inéditos válidos — sesión 2026-09-23/24
+## Sesión 2026-09-23/24 — Aportes inéditos válidos
 
 Mismo criterio de admisión que arriba: útil para este proyecto, válido, verificable en
 el código/artefactos existentes, no refutado por literatura posterior, y que no
@@ -188,6 +193,7 @@ estuviera ya registrado en disco como patrón generalizable (aunque su resultado
 puntual sí conste en `PRD.md`/`TASKS.md`/tests — lo nuevo aquí es el patrón detrás).
 
 ### A-05. En una excepción de rescate para un falso positivo, la señal fuerte que ya decidió correctamente nunca debe ser revertida por la señal débil que motivó el rescate
+`¤a05_excepcion_rescate_senal_fuerte`
 
 **Descripción:** `sala_clasificacion.clasificar_partida` (Paso 0) tenía dos señales
 independientes para excluir una partida de balance del Estado de Resultados: el código
@@ -236,6 +242,7 @@ que fija los 3 subtotales exactos de `ER_NIIF18` tras la corrección.
 entrada documenta el patrón general detrás del fix, no introduce un token nuevo.
 
 ### A-06: Verificar la capacidad real de una fuente de datos en vivo por introspección del mecanismo subyacente, no por lo que la interfaz visible sugiere
+`¤a06_verificar_capacidad_fuente_viva`
 
 **Descripción:** antes de integrar una fuente pública externa (el directorio de
 compañías de la SCVS), se investigó si permitía búsqueda por RUC ejecutando JavaScript
@@ -279,6 +286,7 @@ del DOM) contra `https://mercadodevalores.supercias.gob.ec/reportes/directorioCo
 token de dominio nuevo (es un método de verificación, no un concepto del negocio NIIF 18).
 
 ### A-07: El valor por defecto de un widget con estado persistente solo se respeta en su primer renderizado — un identificador dinámico es la corrección de causa raíz, no releer el estado
+`¤a07_valor_defecto_widget_dinamico`
 
 **Descripción:** en `app.py`, los checkboxes de actividad principal no se pre-marcaban
 con la sugerencia calculada (verificada correcta por separado) tras buscar un nuevo RUC.
@@ -317,7 +325,7 @@ devuelve `true`. Documentado en `governance/artefactos/tasks/consulta_sri_ruc_en
 
 ---
 
-## Aportes inéditos válidos — sesión 2026-09-24/27
+## Sesión 2026-09-24/27 — Aportes inéditos válidos
 
 Mismo criterio de admisión que arriba, con el ajuste explícito ya incorporado a la
 skill `aportes-ineditos`: la rigurosidad matemática (criterio 6) no es un filtro de
@@ -326,6 +334,7 @@ está implementada la herramienta", puede valer tanto como un invariante formal 
 perder tiempo la próxima vez.
 
 ### A-08. Sumar cuentas contables por valor absoluto en vez de por signo neto anula el propósito de las cuentas contra-activo/contra-pasivo
+`¤a08_suma_signo_contra_cuentas`
 
 **Descripción:** al construir `sala_situacion_financiera`, un primer intento sumó el
 saldo de cada cuenta con `abs()` fila por fila dentro de cada categoría (Activo
@@ -362,6 +371,7 @@ Test: `tests/test_sala_situacion_financiera.py::test_calcular_totales_neta_contr
 (`calcular_totales`); sin token de dominio nuevo.
 
 ### A-09. Verificar un estado financiero derivado de dos períodos contra su propia identidad contable de cierre, con un escenario sintético construido por partida doble, expone bugs que una inspección línea por línea no detecta
+`¤a09_identidad_contable_partida_doble`
 
 **Descripción:** al construir `sala_flujo_efectivo` (NIC 7, método indirecto), la única
 forma de saber si el motor estaba realmente bien construido — no solo "cada línea se ve
@@ -403,6 +413,7 @@ cambio real de efectivo la que no admite compensación de errores.
 documenta un patrón de verificación/testing, no introduce un token de dominio nuevo.
 
 ### A-10. Una librería de extracción de tablas puede depender de líneas de grilla visibles en el documento, no solo de la disposición del texto — una tabla "sin bordes" puede fallar en silencio (0 tablas, sin excepción)
+`¤a10_extraccion_tablas_grilla`
 
 **Descripción:** al construir la extracción de PDF con `pdfplumber`, un primer intento
 de generar un PDF de prueba con `reportlab` (`Table` sin `TableStyle`) producía un
@@ -447,6 +458,7 @@ gotcha reaparecería si alguien reusa `reportlab` para otro PDF de prueba sin sa
 ---
 
 ## Candidatos considerados y descartados en esta ejecución (2026-09-27)
+`¤candidatos_descartados_20260927`
 
 Para que la selectividad sea verificable en vez de un criterio de confianza ciega:
 

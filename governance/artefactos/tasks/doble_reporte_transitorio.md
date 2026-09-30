@@ -7,7 +7,7 @@
 ## Origen
 
 Detectada en el análisis de brecha entre la herramienta y el documento de exposición del
-propietario: el `Opinion EBA/Op/2026/07` (ver `PRD.md` §11.4, `FUENTES_Y_BIBLIOGRAFIA.md`)
+propietario: el `Opinion EBA/Op/2026/07` (ver `PRD.md` §11.2, `FUENTES_Y_BIBLIOGRAFIA.md`)
 describe un **periodo de transición** para entidades supervisadas en la UE — entre el
 endoso de IFRS 18 (13-feb-2026) y la fecha de aplicación del ITS sobre FINREP
 (~fin sept-2027), las entidades pueden necesitar reportar **tanto en formato antiguo

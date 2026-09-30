@@ -29,7 +29,7 @@ cambios).
 - No se leyeron en detalle las hojas F 16/F 20/F 45 ni las instrucciones `.docx`
   (Anexo V) — ver "Fuera de alcance" abajo.
 
-## Dos resultados concretos (ver `PRD.md` §11.4 para el detalle normativo completo)
+## Dos resultados concretos (ver `PRD.md` §11.2 para el detalle normativo completo)
 
 1. **Corrección de estado regulatorio**: IFRS 18 **ya fue endosado** en la UE
    (Reglamento de Ejecución (UE) 2026/338, 13-feb-2026) — actualiza §11.1, que decía
@@ -83,7 +83,7 @@ real.
 
 ## Verificación
 
-- `PRD.md` §11.4 nuevo, changelog v3.5.
+- `PRD.md` §11.2 nuevo, changelog v3.5.
 - `FUENTES_Y_BIBLIOGRAFIA.md`: 2 filas nuevas (Opinion EBA, plantilla FINREP F 02.00).
 - `sala_clasificacion/_service.py`: regla de método de participación aplicada (ver
   `tasks/excepcion_metodo_participacion_pendiente.md`).

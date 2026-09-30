@@ -64,6 +64,7 @@ def _es_cuenta_resultados(descripcion):
 _PALABRAS_NO_ORI = ('capital', 'accion', 'acción', 'aporte', 'reserva legal', 'reserva estatutaria')
 
 
+# ¤construir_cambios_patrimonio
 def construir_cambios_patrimonio(df_balance_ano1, df_balance_ano2, resultado_neto):
     """Concilia cada cuenta de Patrimonio entre Año 1 y Año 2 (NIC 1.106-110).
 

@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 __all__ = ["registrar_cambio", "obtener_bitacora"]
 
 
+# ¤registrar_cambio
 def registrar_cambio(bitacora, usuario, cuenta_codigo, categoria_anterior, categoria_nueva, justificacion=""):
     """Agrega un registro append-only a `bitacora` (lista) y la devuelve.
 

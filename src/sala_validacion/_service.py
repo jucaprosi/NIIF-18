@@ -22,6 +22,7 @@ def contar_cuentas_pendientes(df_clasificado, categorias_validas=None):
     return int((~df_clasificado['Categoria_NIIF18'].isin(categorias_validas)).sum())
 
 
+# ¤puede_exportar
 def puede_exportar(df_clasificado, categorias_validas=None):
     """Puerta de reconciliación obligatoria antes de RF-09 (TASKS.md ,
     inspirada en la revisión del repositorio `IFRS-Converter`: "no reconciliation, no

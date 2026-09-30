@@ -53,6 +53,7 @@ def _suma_por_palabras(df_pl_clasificado, palabras):
     return float(df_pl_clasificado.loc[mask, 'Saldo'].sum())
 
 
+# ¤calcular_flujo_efectivo_indirecto
 def calcular_flujo_efectivo_indirecto(df_pl_clasificado, df_balance_ano1, df_balance_ano2, resultado_neto):
     """Estado de Flujo de Efectivo, método indirecto (NIC 7.18(b)).
 

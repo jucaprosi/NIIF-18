@@ -333,6 +333,24 @@ def main():
                     df_reclass['Categoria_NIIF18'] = clasificar_con_configuracion(df_reclass)
                     st.session_state['df_clasificado'] = df_reclass
                     st.rerun()
+                    
+            # ¤sugerencia_confirmacion_actividad_principal (patrón aplicado a desagregación, no bloqueante)
+            candidatas_idx = class_svc.detectar_candidatas_desagregacion(df_reclass)
+            if candidatas_idx:
+                with st.container(border=True):
+                    st.markdown("##### Confirmar revisión de partidas genéricas (Desagregación)")
+                    st.caption("NIIF 18 requiere desagregar partidas con descripciones genéricas si su saldo es material. Recomendamos revisar estas candidatas.")
+                    st.dataframe(df_reclass.loc[candidatas_idx, ['Cuenta', 'Descripcion', 'Saldo']], hide_index=True, use_container_width=True)
+                    
+                    c_chk, c_btn = st.columns([3, 1])
+                    with c_chk:
+                        revisado = st.checkbox("He revisado las partidas candidatas", 
+                                               value=st.session_state.get('desagregacion_revisada', False), 
+                                               key="chk_desagregacion")
+                    with c_btn:
+                        if st.button("Confirmar revisión", icon=":material/check:", width="stretch"):
+                            st.session_state['desagregacion_revisada'] = revisado
+                            st.rerun()
 
             v_key = st.session_state.get('uploader_version', 0)
             editor_key = f"editor_matriz_{v_key}"

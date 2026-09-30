@@ -17,7 +17,7 @@ tipado. Debe validarse contra el texto oficial de NIIF 18 antes de producción
 """
 from sala_catalogo import _service as cat_svc
 
-__all__ = ["clasificar_partida", "clasificar_dataframe"]
+__all__ = ["clasificar_partida", "clasificar_dataframe", "detectar_candidatas_desagregacion"]
 
 # Fuente única de los nombres de categoría: `sala_catalogo` (compuerta oficial del
 # catálogo NIIF 18, PRD.md RF-02). Antes esta sala redefinía los mismos literales por su
@@ -60,7 +60,7 @@ _PALABRAS_INTERES_SIEMPRE_FINANCIACION = ('arrendamiento', 'pension', 'pensión'
 # Resultado por método de participación (asociadas, negocios conjuntos): la plantilla
 # FINREP oficial F 02.00 bajo IFRS 18 (fila 74, "Share of profit/loss of investments...
 # equity method", citando Anexo V.Parte 2.54 — EBA/Op/2026/07, 8-jul-2026, ver
-# FUENTES_Y_BIBLIOGRAFIA.md y PRD.md §11.4) la presenta como línea propia dentro de
+# FUENTES_Y_BIBLIOGRAFIA.md y PRD.md §11.2) la presenta como línea propia dentro de
 # Inversión, inmediatamente después del Resultado Operativo — nunca dentro de Operación.
 # A diferencia del interés/dividendo de inversión (que sí puede moverse a OPERACION si
 # invertir es la actividad principal declarada, Paso 5), el método de participación no
@@ -176,6 +176,7 @@ def clasificar_partida(cuenta, descripcion, saldo, financiacion_es_actividad_pri
     return CATEGORIA_OPERACION
 
 
+# ¤clasificar_dataframe
 def clasificar_dataframe(df, financiacion_es_actividad_principal=False, inversion_es_actividad_principal=False):
     """Aplica `clasificar_partida` fila a fila; devuelve la lista de categorías en orden."""
     return [
@@ -185,3 +186,23 @@ def clasificar_dataframe(df, financiacion_es_actividad_principal=False, inversio
         )
         for _, row in df.iterrows()
     ]
+
+
+# ¤sugerencia_confirmacion_actividad_principal (adaptación para desagregación)
+_PALABRAS_GENERICAS = ('gastos varios', 'otros gastos', 'otros ingresos', 'miscelaneos', 'diversos', 'varios', 'otros')
+
+def detectar_candidatas_desagregacion(df):
+    """Señala partidas con descripciones genéricas como candidatas a desagregación material."""
+    if df.empty or 'Descripcion' not in df.columns:
+        return []
+        
+    candidatas = []
+    for idx, row in df.iterrows():
+        desc = str(row['Descripcion']).strip().lower()
+        # Verificar coincidencia de palabra completa o subcadena significativa
+        # 'otros' es muy común, asegurar que esté sola o como inicio (ej: 'otros gastos', pero no 'nosotros')
+        tokens = [t.strip('.,()[]{}') for t in desc.split()]
+        if any(w in desc for w in ('gastos varios', 'otros gastos', 'otros ingresos', 'miscelaneos', 'diversos', 'varios')) or 'otros' in tokens or 'otra' in tokens or 'otras' in tokens:
+            candidatas.append(idx)
+    return candidatas
+

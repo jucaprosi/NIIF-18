@@ -172,6 +172,7 @@ def infer_columns_by_mathematical_weights(df):
     return best_assignment[0], best_assignment[1], best_assignment[2], min(100.0, max(10.0, (best_score / 3.0) * 100.0))
 
 
+# ¤construir_balanza_estandar
 def construir_balanza_estandar(df_raw, col_cuenta, col_descripcion, col_saldo):
     """Normaliza un DataFrame crudo a las 3 columnas estándar (Cuenta, Descripcion, Saldo).
 

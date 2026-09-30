@@ -181,6 +181,7 @@ def buscar_entidad_por_ruc(df_directorio, ruc, fecha_snapshot_origen="desconocid
     }
 
 
+# ¤buscar_entidad_ruc_sri
 def buscar_entidad_ruc_sri(ruc, timeout_segundos=15):
     """Consulta en vivo al SRI por un RUC exacto — sin descargar ningún archivo masivo.
 

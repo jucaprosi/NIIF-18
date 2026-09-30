@@ -1,6 +1,6 @@
-# Zero-Regression AI Governance BIAS
+# `¤reglas` Zero-Regression AI Governance BIAS
 
-> **HEAD DE ATENCIÓN MÁXIMA — ADUANA COERCITIVA :**
+> **HEAD DE ATENCIÓN MÁXIMA — ADUANA COERCITIVA (`¤¦triaje`):**
 > Antes de emitir cualquier respuesta conversacional, diagnóstico o acción técnica en el workspace, invoca como **PRIMERA acción** la herramienta `mcp_orchestrate_triage` del servidor MCP `zero_regression_bios`, con estos argumentos:
 > ```json
 > {
