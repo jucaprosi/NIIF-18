@@ -1,8 +1,7 @@
 """
 Compuerta _service.py para sala_auditoria.
-[¤vocabulario_precision_agentica]
 
-Responsabilidad (PRD.md RF-10, sala antes propuesta en TASKS.md ¤sala_auditoria_nueva):
+Responsabilidad (PRD.md RF-10, sala antes propuesta en TASKS.md ):
 registro de cada cambio de clasificación (quién, cuándo, categoría anterior/nueva,
 justificación). Append-only: este módulo no expone ninguna función de edición o borrado
 de un registro ya escrito — solo `registrar_cambio` (agrega) y `obtener_bitacora` (lee).
@@ -17,7 +16,7 @@ from datetime import datetime, timezone
 __all__ = ["registrar_cambio", "obtener_bitacora"]
 
 
-# ¤sala_auditoria
+# ¤registrar_cambio
 def registrar_cambio(bitacora, usuario, cuenta_codigo, categoria_anterior, categoria_nueva, justificacion=""):
     """Agrega un registro append-only a `bitacora` (lista) y la devuelve.
 

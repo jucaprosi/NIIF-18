@@ -3,7 +3,6 @@ from tkinter import ttk
 
 """
 Punto de entrada principal para la App NIIF 18.
-[¤nueva]
 """
 
 def main():

@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_mpm.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-05, RF-06): definición, cálculo y conciliación de Medidas
 de Rendimiento Definidas por la Gerencia (MPM), ancladas a un subtotal NIIF 18.
@@ -27,7 +26,7 @@ SUBTOTAL_RESULTADO_OPERATIVO = "1. Resultado Operativo"
 SUBTOTAL_RESULTADO_PERIODO = "3. Resultado del Periodo"
 
 
-# ¤sala_mpm ¤mpm
+# ¤calcular_base_niif
 def calcular_base_niif(df_clasificado, subtotal_base):
     """Devuelve el valor del subtotal NIIF 18 de anclaje elegido para una MPM."""
     if df_clasificado is None:
@@ -38,6 +37,7 @@ def calcular_base_niif(df_clasificado, subtotal_base):
     return subtotales['sub_3_resultado_periodo']
 
 
+# ¤construir_registro_mpm
 def construir_registro_mpm(nombre, subtotal_base, valor_base_niif, ajuste, justificacion):
     """RF-06: arma la fila de conciliación auditada (nota NIIF 18) para una MPM."""
     return {

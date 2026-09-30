@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_validacion.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-08): validaciones normativas de etiquetas y estructura
 antes de permitir avanzar a exportación.
@@ -23,9 +22,9 @@ def contar_cuentas_pendientes(df_clasificado, categorias_validas=None):
     return int((~df_clasificado['Categoria_NIIF18'].isin(categorias_validas)).sum())
 
 
-# ¤sala_validacion
+# ¤puede_exportar
 def puede_exportar(df_clasificado, categorias_validas=None):
-    """Puerta de reconciliación obligatoria antes de RF-09 (TASKS.md ¤puerta_reconciliacion_beta,
+    """Puerta de reconciliación obligatoria antes de RF-09 (TASKS.md ,
     inspirada en la revisión del repositorio `IFRS-Converter`: "no reconciliation, no
     finalized result"). Antes solo se advertía con un badge; ahora se bloquea la
     exportación si la balanza no cuadra o quedan cuentas sin categoría válida.

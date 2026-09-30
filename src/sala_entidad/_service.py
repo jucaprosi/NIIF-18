@@ -1,8 +1,7 @@
 """
 Compuerta _service.py para sala_entidad.
-[¤vocabulario_precision_agentica]
 
-Responsabilidad (PRD.md RF-11, sala antes propuesta en TASKS.md ¤sala_entidad_nueva):
+Responsabilidad (PRD.md RF-11, sala antes propuesta en TASKS.md ):
 identificación de la entidad por RUC, resolución de su código CIIU, y sugerencia
 (editable, nunca aplicada sin confirmación del usuario — ver PRD.md §3 nota de
 implementación y aporte A-02 en APORTES_INEDITOS.md) de si financiación o inversión es
@@ -29,7 +28,7 @@ Las funciones de descarga masiva del directorio SCVS (`actualizar_snapshot_direc
 `cargar_directorio`, `buscar_entidad_por_ruc`) se conservan (probadas, funcionales) mas
 ya no son el flujo por defecto de la UI (`app.py`) — quedan disponibles si se necesita
 resolver un código CIIU exacto (no inferido) contra la fuente oficial completa. Ver
-`TASKS.md` `¤consulta_sri_ruc_en_vivo`.
+`TASKS.md` .
 """
 import os
 import re
@@ -67,7 +66,7 @@ _PALABRAS_VACIAS_CIIU = {
 
 # DRAFT — mapeo CIIU (sección, nivel 1) -> sugerencia de actividad principal.
 # NO VALIDADO CON CRITERIO CONTABLE (PRD.md §8, riesgo de mapeo CIIU->actividad
-# principal; TASKS.md ¤mapeo_ciiu_actividad_principal). Es un punto de partida editable,
+# principal; TASKS.md ). Es un punto de partida editable,
 # nunca una clasificación final — ver `sugerir_actividad_principal`.
 _SECCIONES_FINANCIACION = {"K"}  # K: Actividades financieras y de seguros
 _SECCIONES_INVERSION = {"L"}  # L: Actividades inmobiliarias
@@ -88,7 +87,6 @@ def _ruta_cache_parquet(directorio_path):
     return raiz + ".parquet"
 
 
-# ¤sala_entidad ¤scvs
 def actualizar_snapshot_directorio(directorio_path, url=URL_DIRECTORIO_SCVS, timeout_segundos=30):
     """Intenta refrescar el snapshot local del directorio SCVS descargando el archivo
     público más reciente. Devuelve (bool actualizado, str motivo).
@@ -127,7 +125,7 @@ def cargar_directorio(directorio_path):
     todas las búsquedas de esa sesión — ver `references/performance.md` de la guía
     developing-with-streamlit: "cache la fuente cara, filtre barato después".
 
-    Optimización (TASKS.md ¤optimizar_carga_directorio_scvs): `st.cache_data` solo dura
+    Optimización (TASKS.md ): `st.cache_data` solo dura
     lo que dura el proceso de Streamlit — cada reinicio del servidor vuelve a pagar los
     ~40-70s de leer el `.xlsx` de 227k filas vía openpyxl. Aquí se agrega una caché en
     disco: un `.parquet` hermano del `.xlsx` (mismo nombre, otra extensión), que se
@@ -151,7 +149,6 @@ def cargar_directorio(directorio_path):
     return df
 
 
-# ¤ciiu
 def cargar_catalogo_ciiu(catalogo_path):
     """Carga el catálogo CIIU completo — operación cara, cachear una sola vez (ver `cargar_directorio`)."""
     if not os.path.exists(catalogo_path):
@@ -184,7 +181,7 @@ def buscar_entidad_por_ruc(df_directorio, ruc, fecha_snapshot_origen="desconocid
     }
 
 
-# ¤sala_entidad ¤sri
+# ¤buscar_entidad_ruc_sri
 def buscar_entidad_ruc_sri(ruc, timeout_segundos=15):
     """Consulta en vivo al SRI por un RUC exacto — sin descargar ningún archivo masivo.
 
@@ -228,7 +225,6 @@ def _tokens_significativos(texto):
     return {t for t in re.findall(r"[A-Z]{3,}", texto) if t not in _PALABRAS_VACIAS_CIIU}
 
 
-# ¤ciiu
 def inferir_ciiu_por_texto(texto_actividad, df_catalogo, nivel_minimo=2):
     """Sugiere el código/sección CIIU más probable comparando `texto_actividad` (texto
     libre, p. ej. `actividad_economica_texto` del SRI) contra las descripciones del
@@ -279,7 +275,7 @@ def inferir_ciiu_por_texto(texto_actividad, df_catalogo, nivel_minimo=2):
         "advertencia": (
             "Sección CIIU inferida por coincidencia de texto (no es el código oficial "
             "de la SCVS) — sugerencia DRAFT sin validar por un contador. Ver PRD.md "
-            "§3, RF-11 y TASKS.md ¤mapeo_ciiu_actividad_principal."
+            "§3, RF-11 y TASKS.md ."
         ),
     }
 
@@ -310,6 +306,6 @@ def sugerir_actividad_principal(ciiu_nivel_1):
         "origen_actividad_principal": "sugerido_ciiu",
         "advertencia": (
             "Sugerencia DRAFT sin validar por un contador (PRD.md §8, TASKS.md "
-            "¤mapeo_ciiu_actividad_principal). No usar en producción sin revisión."
+            "). No usar en producción sin revisión."
         ),
     }

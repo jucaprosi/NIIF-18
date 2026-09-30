@@ -1,12 +1,21 @@
 """
 Compuerta _service.py para sala_importacion.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-01): importar y validar una balanza de comprobación desde
-CSV o Excel, sin depender de nombres de cabecera fijos (ver ¤¦aportes A-01 en
-governance/artefactos/APORTES_INEDITOS.md).
+CSV, Excel o PDF generado por herramienta, sin depender de nombres de cabecera fijos
+(ver A-01 en governance/artefactos/APORTES_INEDITOS.md).
+
+Soporte PDF (2026-09-24, a pedido del propietario: "PDF generados con herramientas, no
+foto ni scan"): `extraer_tabla_de_pdf` usa `pdfplumber` (Python puro, sin binarios
+externos) para leer la capa de texto real del PDF y sus tablas -- deliberadamente
+**rechaza** PDFs sin capa de texto extraíble (un escaneo/foto es una imagen rasterizada,
+sin texto que extraer, a menos que ya tenga OCR aplicado, que este proyecto no hace).
+El DataFrame crudo resultante se reincorpora al mismo pipeline de inferencia por forma
+(`infer_columns_by_mathematical_weights`) que ya usan CSV/Excel -- no se duplica lógica
+de detección de columnas para PDF.
 """
 import pandas as pd
+import pdfplumber
 
 __all__ = [
     "clean_numeric_series",
@@ -15,7 +24,16 @@ __all__ = [
     "construir_balanza_estandar",
     "sugerir_hoja_balanza",
     "evaluar_calidad_balanza",
+    "extraer_tabla_de_pdf",
 ]
+
+# Un PDF con capa de texto real (generado por una herramienta: SAP, Excel->PDF, un ERP)
+# trae cientos de caracteres extraíbles por página de estado financiero -- una página
+# escaneada/fotografiada sin OCR devuelve 0 caracteres vía `extract_text()` porque no
+# hay texto en absoluto, solo una imagen rasterizada. El umbral es deliberadamente bajo
+# (no hace falta calibrarlo fino: la brecha real entre "0 caracteres" y "cientos de
+# caracteres" es enorme, no un caso límite).
+UMBRAL_CARACTERES_POR_PAGINA = 40
 
 COLUMNAS_ESTANDAR = ["Cuenta", "Descripcion", "Saldo"]
 
@@ -154,7 +172,7 @@ def infer_columns_by_mathematical_weights(df):
     return best_assignment[0], best_assignment[1], best_assignment[2], min(100.0, max(10.0, (best_score / 3.0) * 100.0))
 
 
-# ¤sala_importacion
+# ¤construir_balanza_estandar
 def construir_balanza_estandar(df_raw, col_cuenta, col_descripcion, col_saldo):
     """Normaliza un DataFrame crudo a las 3 columnas estándar (Cuenta, Descripcion, Saldo).
 
@@ -172,3 +190,53 @@ def construir_balanza_estandar(df_raw, col_cuenta, col_descripcion, col_saldo):
         'Saldo': clean_numeric_series(df_raw[col_saldo]),
     })
     return df.reset_index(drop=True)
+
+
+def extraer_tabla_de_pdf(archivo):
+    """Extrae la primera tabla real de un PDF generado por herramienta (no escaneado).
+
+    Devuelve (df_crudo, motivos). Si `df_crudo` es `None`, `motivos` explica por qué
+    (sin capa de texto extraíble -- probable escaneo/foto -- o sin tabla detectable).
+    El DataFrame devuelto tiene la primera fila de la tabla como cabecera y el resto
+    como datos, listo para pasar por `infer_columns_by_mathematical_weights` igual que
+    cualquier hoja de Excel/CSV -- no se reimplementa la inferencia de columnas para PDF.
+
+    `archivo` acepta una ruta, bytes, o un objeto tipo archivo (p. ej. el
+    `UploadedFile` que entrega `st.file_uploader` en Streamlit -- pdfplumber acepta
+    cualquier objeto con `.read()`).
+    """
+    try:
+        pdf = pdfplumber.open(archivo)
+    except Exception as exc:
+        return None, [f"No se pudo abrir el PDF ({exc.__class__.__name__}): {exc}"]
+
+    with pdf:
+        if len(pdf.pages) == 0:
+            return None, ["El PDF no tiene páginas."]
+
+        total_caracteres = sum(len((pagina.extract_text() or "").strip()) for pagina in pdf.pages)
+        promedio_por_pagina = total_caracteres / len(pdf.pages)
+        if promedio_por_pagina < UMBRAL_CARACTERES_POR_PAGINA:
+            return None, [
+                "Este PDF no tiene una capa de texto extraíble -- parece un escaneo o "
+                "una foto, no un documento generado directamente por una herramienta "
+                "(ERP, Excel, sistema contable). Solo se aceptan PDFs con texto real; "
+                "exporte el reporte desde la herramienta original en vez de escanearlo."
+            ]
+
+        filas = []
+        for pagina in pdf.pages:
+            for tabla in (pagina.extract_tables() or []):
+                filas.extend(tabla)
+
+    if not filas:
+        return None, [
+            "El PDF tiene texto extraíble pero no se detectó ninguna tabla en su "
+            "estructura -- puede que el reporte use texto libre en vez de una tabla "
+            "real. Intente exportarlo en formato Excel/CSV, o mapee las columnas "
+            "manualmente si el archivo sí trae una balanza en forma de tabla."
+        ]
+
+    cabecera, *datos = filas
+    df = pd.DataFrame(datos, columns=cabecera)
+    return df.dropna(how='all', axis=1).dropna(how='all', axis=0).reset_index(drop=True), []

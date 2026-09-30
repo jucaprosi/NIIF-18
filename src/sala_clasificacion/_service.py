@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_clasificacion.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-02, RF-03): motor de clasificación jerárquica. Implementa
 el árbol de decisión normativo de PRD.md §3, en el orden ahí especificado — no la
@@ -14,11 +13,11 @@ como parámetros explícitos (ver PRD.md RF-11), en vez de ignorarlos.
 Limitación conocida (heredada, señalada en PRD.md §8): la detección de cada paso sigue
 basada en palabras clave y prefijos de código de cuenta, no en un catálogo contable
 tipado. Debe validarse contra el texto oficial de NIIF 18 antes de producción
-(TASKS.md ¤fuentes_iasb_oficial).
+(TASKS.md ).
 """
 from sala_catalogo import _service as cat_svc
 
-__all__ = ["clasificar_partida", "clasificar_dataframe"]
+__all__ = ["clasificar_partida", "clasificar_dataframe", "detectar_candidatas_desagregacion"]
 
 # Fuente única de los nombres de categoría: `sala_catalogo` (compuerta oficial del
 # catálogo NIIF 18, PRD.md RF-02). Antes esta sala redefinía los mismos literales por su
@@ -61,17 +60,16 @@ _PALABRAS_INTERES_SIEMPRE_FINANCIACION = ('arrendamiento', 'pension', 'pensión'
 # Resultado por método de participación (asociadas, negocios conjuntos): la plantilla
 # FINREP oficial F 02.00 bajo IFRS 18 (fila 74, "Share of profit/loss of investments...
 # equity method", citando Anexo V.Parte 2.54 — EBA/Op/2026/07, 8-jul-2026, ver
-# FUENTES_Y_BIBLIOGRAFIA.md y PRD.md §11.4) la presenta como línea propia dentro de
+# FUENTES_Y_BIBLIOGRAFIA.md y PRD.md §11.2) la presenta como línea propia dentro de
 # Inversión, inmediatamente después del Resultado Operativo — nunca dentro de Operación.
 # A diferencia del interés/dividendo de inversión (que sí puede moverse a OPERACION si
 # invertir es la actividad principal declarada, Paso 5), el método de participación no
 # tiene esa excepción: confirma con fuente oficial lo que antes solo tenía el respaldo
-# de la nota de auto-corrección de IFRS-Converter (PRD.md, antes ¤excepcion_metodo_
+# de la nota de auto-corrección de IFRS-Converter (PRD.md, antes
 # participacion_pendiente).
 _PALABRAS_METODO_PARTICIPACION = ('asociada', 'negocio conjunto', 'metodo de participacion', 'método de participación')
 
 
-# ¤sala_clasificacion ¤arbol_clasificacion ¤configuracion_entidad
 def clasificar_partida(cuenta, descripcion, saldo, financiacion_es_actividad_principal=False, inversion_es_actividad_principal=False):
     """Árbol de decisión de clasificación NIIF 18 — PRD.md §3, en su orden normativo."""
     cta = str(cuenta).strip()
@@ -101,7 +99,7 @@ def clasificar_partida(cuenta, descripcion, saldo, financiacion_es_actividad_pri
     # que ya tiene su propia cuenta de gasto separada, p. ej. "Depreciación edificios"
     # 5.2.03.001). Esto inflaba/desinflaba el resultado operativo en $690,000 sobre la
     # balanza de prueba real -- exactamente la brecha entre el resultado del motor y el
-    # de `ER_NIIF18` (ver TASKS.md ¤discrepancia_motor_tb_erp_pendiente). El rescate por
+    # de `ER_NIIF18` (ver TASKS.md ). El rescate por
     # palabra clave ahora solo aplica cuando el disparador fue (b), nunca cuando fue (a).
     _por_codigo = cta.startswith(('1', '2', '3'))
     _por_palabra_balance = any(w in desc for w in _PALABRAS_BALANCE)
@@ -178,7 +176,7 @@ def clasificar_partida(cuenta, descripcion, saldo, financiacion_es_actividad_pri
     return CATEGORIA_OPERACION
 
 
-# ¤core
+# ¤clasificar_dataframe
 def clasificar_dataframe(df, financiacion_es_actividad_principal=False, inversion_es_actividad_principal=False):
     """Aplica `clasificar_partida` fila a fila; devuelve la lista de categorías en orden."""
     return [
@@ -188,3 +186,23 @@ def clasificar_dataframe(df, financiacion_es_actividad_principal=False, inversio
         )
         for _, row in df.iterrows()
     ]
+
+
+# ¤sugerencia_confirmacion_actividad_principal (adaptación para desagregación)
+_PALABRAS_GENERICAS = ('gastos varios', 'otros gastos', 'otros ingresos', 'miscelaneos', 'diversos', 'varios', 'otros')
+
+def detectar_candidatas_desagregacion(df):
+    """Señala partidas con descripciones genéricas como candidatas a desagregación material."""
+    if df.empty or 'Descripcion' not in df.columns:
+        return []
+        
+    candidatas = []
+    for idx, row in df.iterrows():
+        desc = str(row['Descripcion']).strip().lower()
+        # Verificar coincidencia de palabra completa o subcadena significativa
+        # 'otros' es muy común, asegurar que esté sola o como inicio (ej: 'otros gastos', pero no 'nosotros')
+        tokens = [t.strip('.,()[]{}') for t in desc.split()]
+        if any(w in desc for w in ('gastos varios', 'otros gastos', 'otros ingresos', 'miscelaneos', 'diversos', 'varios')) or 'otros' in tokens or 'otra' in tokens or 'otras' in tokens:
+            candidatas.append(idx)
+    return candidatas
+

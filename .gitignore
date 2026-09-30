@@ -14,11 +14,6 @@ edit_app.py
 payload.json
 .test_verdict.json
 
-# Gobernanza y metadatos del Agente (Reglas)
-governance/
-.agents/
-AGENTS.md
-
 # Scripts exclusivos del entorno local Windows
 run.bat
 setup.bat
@@ -26,3 +21,7 @@ test.bat
 
 # Config local de Claude Code (hooks personales)
 .claude/settings.local.json
+
+# Log DSH del MCP zero_regression_bios (micro, por llamada a herramienta):
+# telemetría de ese servidor, no artefacto propio de este proyecto.
+governance/artefactos/data/dsh_sessions/

@@ -4,3 +4,5 @@ openpyxl
 pytest
 requests
 pyarrow
+pdfplumber
+reportlab  # solo para generar PDFs sintéticos en tests/test_sala_importacion_pdf.py, no se usa en producción

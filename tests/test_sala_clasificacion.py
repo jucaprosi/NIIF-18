@@ -93,7 +93,7 @@ def test_cuenta_de_balance_sin_movimiento_pl_se_excluye():
 # convención contable (saldo acumulado, no movimiento del período) -- el rescate por
 # `_PALABRAS_MOVIMIENTO_PL` las dejaba entrar al Estado de Resultados por error, inflando
 # el resultado operativo en $690,000 frente a `ER_NIIF18` (ver TASKS.md
-# ¤discrepancia_motor_tb_erp_pendiente). El código de cuenta (1/2/3 = balance) es una
+# ). El código de cuenta (1/2/3 = balance) es una
 # señal más fuerte que cualquier palabra de la descripción y no debe revertirse por ella.
 def test_deterioro_acumulado_es_cuenta_de_balance_no_movimiento_pl():
     cat = class_svc.clasificar_partida("1.1.02.099", "Deterioro acumulado de cartera", -40000)

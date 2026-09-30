@@ -1,5 +1,4 @@
 # NIIF 18 Financial Reporting Matrix - Manual de Operación
-[¤protocolo_migracion_legacy]
 
 Bienvenidos a la **Plataforma de Cumplimiento y Reclasificación NIIF 18**. 
 
@@ -8,6 +7,7 @@ Esta herramienta de nivel corporativo está diseñada específicamente para equi
 ---
 
 ## 🚀 Inicio Rápido (Despliegue Local)
+`¤inicio_rapido_despliegue`
 
 La plataforma se despliega en un entorno local aislado (Zero-Trust) para proteger su información financiera.
 
@@ -18,39 +18,45 @@ La plataforma se despliega en un entorno local aislado (Zero-Trust) para protege
 
 ## 🧭 Guía de Operación Funcional (Flujo de Cierre)
 
-La plataforma está dividida en **6 módulos (pestañas)** que deben procesarse secuencialmente durante su ciclo de cierre contable:
+La plataforma está dividida en **módulos de navegación vertical** (barra lateral izquierda) que deben procesarse secuencialmente durante su ciclo de cierre contable:
 
 ### 📥 1. Ingesta (Dropzone)
+`¤ui_ingesta_dropzone`
 *Punto de entrada de datos desde su ERP.*
 - **Operación**: Arrastre y suelte la Balanza de Comprobación exportada desde su sistema contable (SAP, Oracle, Dynamics, etc.) en formato `.csv` o `.xlsx`.
 - **Validación Cero**: El sistema verificará de inmediato que la balanza cuadre (Tolerancia Cero), mostrando el saldo de comprobación en el panel lateral.
 - *Nota*: Puede utilizar el botón `Cargar Dataset Demo NIIF 18` para inyectar un juego de datos de prueba preconfigurado y familiarizarse con la herramienta.
 
 ### 🏷️ 2. Matriz de Reclasificación
+`¤ui_matriz_reclasificacion`
 *El motor de mapeo estructural. Aquí aplicará su juicio profesional.*
 - **Operación**: Verá la grilla de alta densidad con sus cuentas contables. Utilice la columna **"Clasificación NIIF 18"** para asignar cada rubro a una de las 5 categorías mandatorias (Operativo, Inversión, Financiación, Impuestos, Operaciones Discontinuadas).
 - **Residualidad**: Recuerde que, según la norma, la categoría *Operativa* es residual; asigne primero las partidas específicas de Inversión, Financiación e Impuestos, dejando el giro del negocio en la categoría por defecto.
 
 ### 📊 3. Árbol de EEFF (Estados Financieros)
+`¤ui_arbol_eeff`
 *Renderizado jerárquico automatizado.*
-- **Operación**: Una vez clasificada la balanza, esta pestaña calculará automáticamente y en tiempo real los 3 nuevos subtotales exigidos por el IASB:
+- **Operación**: Una vez clasificada la balanza, esta sección calculará automáticamente y en tiempo real los 3 nuevos subtotales exigidos por el IASB:
   1. *Resultado Operativo*
   2. *Resultado antes de Financiación e Impuestos a las Ganancias*
   3. *Resultado del Periodo*
 - Permite desplegar el árbol para auditar qué cuentas específicas de su balanza componen cada subtotal.
 
 ### 📈 4. Conciliación MPM (Medidas de Rendimiento Definidas por la Gerencia)
+`¤ui_conciliacion_mpm`
 *Gestión del cumplimiento de divulgación de KPIs (ej. EBITDA, Utilidad Ajustada).*
 - **Operación**: Si su compañía reporta métricas *Non-GAAP* a los inversores, IFRS 18 exige una conciliación obligatoria auditada en una nota única. 
 - Utilice el **formulario izquierdo** para registrar la MPM, seleccionar el subtotal NIIF 18 de anclaje e insertar el ajuste monetario.
 - Escriba la *Justificación Gerencial* requerida. Al enviar, la **tabla de conciliación derecha** se actualizará, generando la estructura exacta requerida para las notas a los estados financieros (incluyendo efectos fiscales automáticos).
 
 ### 📑 5. Centro de Exportación
+`¤ui_centro_exportacion`
 *Extracción segura del paquete de cierre.*
 - **Operación**: Descargue los *working papers* en Excel y CSV. 
 - El sistema le permite exportar tanto el Estado de Resultados estructurado final como el log completo de trazabilidad (Mapeo de cuentas original vs. Categoría NIIF 18 asignada) indispensable para su firma auditora.
 
 ### 📚 6. Visor Doctrinal
+`¤ui_visor_doctrinal`
 *Referencia normativa integrada.*
 - **Operación**: Un lector Markdown embebido que contiene la Biblioteca Doctrinal destilada. Permite a su equipo repasar los preceptos de agrupación/desagregación, guías de MPMs y exenciones de transición sin necesidad de salir de la aplicación.
 

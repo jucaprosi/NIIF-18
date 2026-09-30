@@ -1,6 +1,5 @@
 """
 Compuerta _service.py para sala_estados_financieros.
-[¤vocabulario_precision_agentica]
 
 Responsabilidad (PRD.md RF-04, RF-07): generación del Estado de Resultados y cálculo
 de los 3 subtotales mandatorios (PRD.md §2.2) a partir de la balanza ya clasificada.
@@ -32,7 +31,7 @@ def calculate_pl_contribution(row):
     return abs(saldo) if is_income_account(cta, desc, saldo) else -abs(saldo)
 
 
-# ¤sala_estados_financieros ¤subtotales_mandatorios
+# ¤calcular_subtotales
 def calcular_subtotales(df_clasificado):
     """Calcula PL_Neto por partida y los 3 subtotales mandatorios (PRD.md §2.2).
 
