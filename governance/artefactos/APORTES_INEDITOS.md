@@ -84,7 +84,7 @@ sistema de "alto riesgo" bajo marcos regulatorios de IA que exigen supervisión 
 efectiva (no solo nominal) sobre decisiones automatizadas con impacto normativo.
 
 **Verificabilidad:** es una regla de diseño registrada en `PRD.md` (RF-11) y en el
-backlog de `TASKS.md` ; se verifica por inspección
+backlog de `TASKS.md`; se verifica por inspección
 del PRD y, cuando `sala_entidad` se implemente, por un test que confirme que RF-03 se
 bloquea con `origen_actividad_principal = "sugerido_ciiu"` sin confirmar.
 
@@ -149,13 +149,13 @@ bien etiquetadas estén internamente con negrita o viñetas — la unidad de ind
 es el token, es el archivo.
 
 **Corrección aplicada:** se dividió `TASKS.md` en `governance/artefactos/tasks/<token>.md`
-— un archivo por tarea, cada uno con su propio encabezado H1 , igual patrón
+— un archivo por tarea, cada uno con su propio encabezado H1 con rastro, igual patrón
 que el resto de artefactos vivos. `TASKS.md` pasó a ser un índice (tabla con estado,
 token, resumen y enlace), no el contenedor del contenido.
 
 **Por qué es útil aquí:** no es un capricho estético — es la diferencia entre que una
 tarea pueda o no participar del grafo de trazabilidad que el propio proyecto declara
-como su mecanismo de gobernanza ( en `AGENTS.md`). Un artefacto de
+como su mecanismo de gobernanza (declarado en `AGENTS.md`). Un artefacto de
 gobernanza que no puede ser indexado por su propia herramienta de gobernanza es, en la
 práctica, invisible para ella.
 

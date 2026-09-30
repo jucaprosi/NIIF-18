@@ -351,7 +351,7 @@ Cada RF de abajo documenta, además de su función orquestadora (**AST-L1**, pun
 
 ## 5. Requisitos No Funcionales
 
-- **Codificación** : todo archivo del proyecto se mantiene en UTF-8 estricto sin BOM (`INVARIANTS.md` `INV_ZERO_UTF8_BOM`).
+- **Codificación:** todo archivo del proyecto se mantiene en UTF-8 estricto sin BOM (`INVARIANTS.md` `INV_ZERO_UTF8_BOM`).
 - **Manejo de errores en importación**: fallos de archivo deben ser deterministas y reproducibles (mismo archivo → mismo error).
 - **Trazabilidad**: toda clasificación debe ser explicable (mostrar qué regla del árbol §3 se aplicó).
 - **Rendimiento**: sin objetivo definido aún — pendiente de definir volumen esperado de cuentas por balanza.
@@ -365,11 +365,11 @@ Cada RF de abajo documenta, además de su función orquestadora (**AST-L1**, pun
 
 ## 6. Arquitectura
 
-- Python 3.11+, Streamlit para UI (`src/app.py` es el presentador puro ; las 12 salas en conjunto son la lógica central ).
+- Python 3.11+, Streamlit para UI (`src/app.py` es el presentador puro; las 12 salas en conjunto son la lógica central).
 - Estructura ADPA con compuertas `_service.py` por sala (§4).
-- Gobernanza del proyecto: invariantes en `governance/artefactos/INVARIANTS.md`, trazabilidad de rastros en `VPA_MAP.md` , backlog vivo en `TASKS.md` , fuentes en `FUENTES_Y_BIBLIOGRAFIA.md` .
+- Gobernanza del proyecto: invariantes en `governance/artefactos/INVARIANTS.md`, trazabilidad de rastros en `VPA_MAP.md`, backlog vivo en `TASKS.md`, fuentes en `FUENTES_Y_BIBLIOGRAFIA.md`.
 - Datasets públicos locales (RF-11): `data/ciiu.xlsx` (catálogo CIIU, estático) y `data/directorio_companias_scvs.xlsx` (directorio SCVS, ruta alterna).
-- Cada rastro `¤` de dominio nace en `VPA_MAP.md` y está físicamente conectado a un archivo de código real bajo `src/` (comentario `# sobre la función que lo implementa, verificable con `grep -rn "^# ¤" src/`).
+- Cada rastro `¤` de dominio nace en `VPA_MAP.md` y está físicamente conectado a un archivo de código real bajo `src/` (comentario `# ¤rastro` sobre la función que lo implementa, verificable con `grep -rn "^# ¤" src/`).
 - **Referencias de diseño**: se investigó `IFRS-Converter` (proyecto europeo de código abierto, sin licencia declarada — no se copió código, solo se usó como validación cruzada de decisiones ya tomadas: motor de reglas determinista con revisión humana como autoridad final, bitácora append-only, puerta de reconciliación obligatoria antes de exportar). Prioridad de diseño compartida: *Accuracy > Automation, Traceability > Convenience, Explainability > Black-box AI*.
 
 
